@@ -522,6 +522,15 @@ class TonicsQuery {
      * @param int $number
      * @return TonicsQuery
      */
+    public function Take(int $number): static
+    {
+        return $this->Limit($number);
+    }
+
+    /**
+     * @param int $number
+     * @return TonicsQuery
+     */
     public function Offset(int $number): static
     {
         $this->lastEmittedType = 'OFFSET';
@@ -531,13 +540,27 @@ class TonicsQuery {
     }
 
     /**
+     * @param int $number
+     * @return TonicsQuery
+     */
+    public function Skip(int $number): static
+    {
+        return $this->Offset($number);
+    }
+
+
+    /**
      * @param string $column
      * @return $this
      */
     public function OrderBy(string $column)
     {
+        $orderBy = 'ORDER BY ';
+        if($this->isLastEmitted('ORDER BY')){
+            $orderBy = ', ';
+        }
         $this->lastEmittedType = 'ORDER BY';
-        $this->addSqlString("ORDER BY $column");
+        $this->addSqlString("$orderBy$column");
         return $this;
     }
 
@@ -547,13 +570,29 @@ class TonicsQuery {
      */
     public function OrderByDesc(string $column): static
     {
-        $orderBy = 'ORDER BY';
+        $orderBy = 'ORDER BY ';
         if($this->isLastEmitted('ORDER BY')){
-            $orderBy = '';
+            $orderBy = ', ';
         }
 
         $this->lastEmittedType = 'ORDER BY';
-        $this->addSqlString("$orderBy $column DESC");
+        $this->addSqlString("$orderBy$column DESC");
+        return $this;
+    }
+
+    /**
+     * @param string $column
+     * @return $this
+     */
+    public function OrderByAsc(string $column): static
+    {
+        $orderBy = 'ORDER BY ';
+        if($this->isLastEmitted('ORDER BY')){
+            $orderBy = ', ';
+        }
+
+        $this->lastEmittedType = 'ORDER BY';
+        $this->addSqlString("$orderBy$column ASC");
         return $this;
     }
 
