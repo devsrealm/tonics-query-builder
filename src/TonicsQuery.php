@@ -721,6 +721,22 @@ class TonicsQuery {
         return $this->UnionReleated($subQuery, 'EXCEPT ALL');
     }
 
+    public function With(string $cteName, TonicsQuery $cteBody, bool $recursive = false)
+    {
+        $with = 'WITH';
+        if($this->isLastEmitted('WITH')){
+            $having = ',';
+        }
+        $recursiveName = '';
+        if($recursive){
+            $recursiveName = 'RECURSIVE';
+        }
+        $this->lastEmittedType = 'WITH';
+        $this->addSqlString("$with $recursiveName $cteName AS ( {$cteBody->getSqlString()} )");
+        $this->addParams($cteBody->getParams());
+        return $this;
+    }
+
 
     public function Join($table, $col, $col2, $op = '=')
     {
