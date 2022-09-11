@@ -165,6 +165,26 @@ class TonicsQuery {
     }
 
     /**
+     * @param $param
+     * @return $this
+     */
+    public function addParam($param): static
+    {
+        $this->params[] = $param;
+        return $this;
+    }
+
+    /**
+     * @param array $params
+     * @return $this
+     */
+    public function addParams(array $params): static
+    {
+        $this->params = [...$this->params, ...$params];
+        return $this;
+    }
+
+    /**
      * @return string
      */
     public function getLastEmittedType(): string
@@ -241,6 +261,23 @@ class TonicsQuery {
     {
         $this->lastEmittedType = 'FROM';
         $this->sqlString .= "FROM $column ";
+        return $this;
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function Where(string $col, string $op, $value): static
+    {
+        $op = $this->getWhereOP($op);
+        if ($this->isLastEmitted('WHERE')){
+            $this->sqlString .= "AND $col $op ? ";
+        } else {
+            $this->lastEmittedType = 'WHERE';
+            $this->sqlString .= "WHERE $col $op ? ";
+        }
+        $this->addParam($value);
+
         return $this;
     }
 
