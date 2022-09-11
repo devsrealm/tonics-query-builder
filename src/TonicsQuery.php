@@ -182,6 +182,11 @@ class TonicsQuery {
         return $this;
     }
 
+    public function isLastEmitted(string $type): bool
+    {
+        return strtolower($this->lastEmittedType) === strtolower($type);
+    }
+
     protected function isWhereOP(string $opValue): bool
     {
         return key_exists($opValue, $this->validWhereOP);
@@ -200,6 +205,46 @@ class TonicsQuery {
         }
 
         throw new \Exception("Invalid Operator $opValue");
+    }
+
+    /**
+     * If you have multiple fluent Select method, e.g:
+     *
+     * `Select()->Select()` the second Select arg should be a TonicsQuery Object, and it would be subqueried,
+     * besides, you do not need to add SELECT in the object, it would be added automatically.
+     * @param string|TonicsQuery $select
+     * @return $this
+     * @throws \Exception
+     */
+    public function Select(string|TonicsQuery $select): static
+    {
+        if ($this->isLastEmitted('SELECT')){
+            if (is_object($select)){
+                $this->validateNewInstanceOfTonicsQuery($select);
+                $this->sqlString .= "( SELECT {$select->getSqlString()} ) ";
+                $this->params = [...$this->params, ...$select->getParams()];
+            }
+            throw new \Exception("Last emitted type was select, the current select arg should be a TonicsQuery Object");
+        } else {
+            $this->lastEmittedType = 'SELECT';
+            $this->sqlString .= "SELECT $select ";
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param TonicsQuery $subQuery
+     * @return $this
+     * @throws \Exception
+     */
+    public function SubQuery(TonicsQuery $subQuery): static
+    {
+        $this->lastEmittedType = 'SubQuery';
+        $this->validateNewInstanceOfTonicsQuery($subQuery);
+        $this->sqlString .= "( {$subQuery->getSqlString()} ) ";
+        $this->params = [...$this->params, ...$subQuery->getParams()];
+        return $this;
     }
 
     /**
@@ -222,7 +267,6 @@ class TonicsQuery {
      */
     public function JsonSet(string $jsonDoc, ...$path): static
     {
-        // JSON_SET(properties, '$.time_modified', ?, '$.filename', ?)
         $this->lastEmittedType = 'JSON_SET';
         $mark = $this->returnRequiredQuestionMarks($path);
         $this->sqlString .= "JSON_SET($jsonDoc, $mark) ";
@@ -313,5 +357,15 @@ class TonicsQuery {
             # str_replace replaces any quote
             return str_replace("\"", '', $column);
         }, $columns));
+    }
+
+    /**
+     * @throws \Exception
+     */
+    protected function validateNewInstanceOfTonicsQuery(TonicsQuery $tonicsQuery): void
+    {
+        if ($tonicsQuery === $this){
+            throw new \Exception("A new instance of TonicsQuery should be passed in subQuery");
+        }
     }
 }
