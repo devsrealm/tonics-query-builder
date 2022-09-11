@@ -279,13 +279,24 @@ class TonicsQuery {
     }
 
     /**
+     * If $value is TonicQuery object, it would be converted to a subquery
+     * @param string $col
+     * @param string $op
+     * @param $value
+     * @return $this
      * @throws \Exception
      */
     public function Where(string $col, string $op, $value): static
     {
         $op = $this->getWhereOP($op);
-        $this->sqlString .= "{$this->getWhere()} $col $op ? ";
-        $this->addParam($value);
+        if ($value instanceof TonicsQuery){
+            $this->validateNewInstanceOfTonicsQuery($value);
+            $this->sqlString .= "{$this->getWhere()} $col $op ( {$value->getSqlString()} ) ";
+            $this->params = [...$this->params, ...$value->getParams()];
+        } else {
+            $this->sqlString .= "{$this->getWhere()} $col $op ? ";
+            $this->addParam($value);
+        }
 
         return $this;
     }
@@ -504,5 +515,23 @@ class TonicsQuery {
         if ($tonicsQuery === $this){
             throw new \Exception("A new instance of TonicsQuery should be passed in subQuery");
         }
+    }
+
+    /**
+     * @param $condition
+     * @param callable $callback
+     * @param callable|null $callbackElse
+     * @return static
+     */
+    public function if($condition, callable $callback, callable $callbackElse = null): static
+    {
+        if ($condition) {
+            $callback($this);
+        } else {
+            if($callbackElse){
+                $callbackElse($this);
+            }
+        }
+        return $this;
     }
 }
