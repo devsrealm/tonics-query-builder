@@ -147,6 +147,16 @@ class TonicsQuery {
     }
 
     /**
+     * @param string $sqlString
+     * @return $this
+     */
+    protected function addSqlString(string $sqlString): static
+    {
+        $this->sqlString .= $sqlString . " ";
+        return $this;
+    }
+
+    /**
      * @return array
      */
     public function getParams(): array
@@ -243,13 +253,13 @@ class TonicsQuery {
         if ($this->isLastEmitted('SELECT')){
             if (is_object($select)){
                 $this->validateNewInstanceOfTonicsQuery($select);
-                $this->sqlString .= "( SELECT {$select->getSqlString()} ) ";
+                $this->addSqlString("( SELECT {$select->getSqlString()} )");
                 $this->params = [...$this->params, ...$select->getParams()];
             }
             throw new \Exception("Last emitted type was select, the current select arg should be a TonicsQuery Object");
         } else {
             $this->lastEmittedType = 'SELECT';
-            $this->sqlString .= "SELECT $select ";
+            $this->addSqlString("SELECT $select");
         }
 
         return $this;
@@ -262,7 +272,7 @@ class TonicsQuery {
     public function From(string $table): static
     {
         $this->lastEmittedType = 'FROM';
-        $this->sqlString .= "FROM $table ";
+        $this->addSqlString("FROM $table");
         return $this;
     }
 
@@ -293,10 +303,10 @@ class TonicsQuery {
         $op = $this->getWhereOP($op);
         if ($value instanceof TonicsQuery){
             $this->validateNewInstanceOfTonicsQuery($value);
-            $this->sqlString .= "{$this->getWhere()} $col $op ( {$value->getSqlString()} ) ";
+            $this->addSqlString("{$this->getWhere()} $col $op ( {$value->getSqlString()} )");
             $this->addParams($value->getParams());
         } else {
-            $this->sqlString .= "{$this->getWhere()} $col $op ? ";
+            $this->addSqlString("{$this->getWhere()} $col $op ?");
             $this->addParam($value);
         }
 
@@ -309,7 +319,7 @@ class TonicsQuery {
      */
     public function WhereNull(string $col): static
     {
-        $this->sqlString .= "{$this->getWhere()} $col IS NULL ";
+        $this->addSqlString("{$this->getWhere()} $col IS NULL");
         return $this;
     }
 
@@ -319,7 +329,7 @@ class TonicsQuery {
      */
     public function OrWhereNull(string $col): static
     {
-        $this->sqlString .= "{$this->getWhere('OR')} $col IS NULL ";
+        $this->addSqlString("{$this->getWhere('OR')} $col IS NULL");
         return $this;
     }
 
@@ -329,7 +339,7 @@ class TonicsQuery {
      */
     public function WhereNotNull(string $col): static
     {
-        $this->sqlString .= "{$this->getWhere()} $col IS NOT NULL ";
+        $this->addSqlString("{$this->getWhere()} $col IS NOT NULL");
         return $this;
     }
 
@@ -339,7 +349,7 @@ class TonicsQuery {
      */
     public function OrWhereNotNull(string $col): static
     {
-        $this->sqlString .= "{$this->getWhere('OR')} $col IS NOT NULL ";
+        $this->addSqlString("{$this->getWhere('OR')} $col IS NOT NULL");
         return $this;
     }
 
@@ -349,7 +359,7 @@ class TonicsQuery {
      */
     public function WhereFalse(string $col): static
     {
-        $this->sqlString .= "{$this->getWhere()} $col = FALSE ";
+        $this->addSqlString("{$this->getWhere()} $col = FALSE");
         return $this;
     }
 
@@ -359,7 +369,7 @@ class TonicsQuery {
      */
     public function OrWhereFalse(string $col): static
     {
-        $this->sqlString .= "{$this->getWhere('OR')} $col = FALSE ";
+        $this->addSqlString("{$this->getWhere('OR')} $col = FALSE");
         return $this;
     }
 
@@ -369,7 +379,7 @@ class TonicsQuery {
      */
     public function WhereTrue(string $col): static
     {
-        $this->sqlString .= "{$this->getWhere()} $col = TRUE ";
+        $this->addSqlString("{$this->getWhere()} $col = TRUE");
         return $this;
     }
 
@@ -379,7 +389,7 @@ class TonicsQuery {
      */
     public function OrWhereTrue(string $col): static
     {
-        $this->sqlString .= "{$this->getWhere('OR')} $col = TRUE ";
+        $this->addSqlString("{$this->getWhere('OR')} $col = TRUE");
         return $this;
     }
 
@@ -400,13 +410,13 @@ class TonicsQuery {
 
         if (is_array($value) && array_is_list($value)){
             $qmark = $this->returnRequiredQuestionMarks($value);
+            $this->addSqlString("{$addWhere} $col $type($qmark) ");
             $this->addParams($value);
-            $this->sqlString .= "{$addWhere} $col $type($qmark) ";
         }
 
         if ($value instanceof TonicsQuery){
             $this->validateNewInstanceOfTonicsQuery($value);
-            $this->sqlString .= "{$addWhere} $col $type ( {$value->getSqlString()} ) ";
+            $this->addSqlString("{$addWhere} $col $type ( {$value->getSqlString()} )");
             $this->addParams($value->getParams());
         }
 
@@ -429,6 +439,8 @@ class TonicsQuery {
         return $this->WhereIn_NotIn($col, $value, 'NOT IN');
     }
 
+
+
     public function Or(): string
     {
         return 'OR ';
@@ -448,7 +460,7 @@ class TonicsQuery {
     {
         $this->lastEmittedType = 'SubQuery';
         $this->validateNewInstanceOfTonicsQuery($subQuery);
-        $this->sqlString .= "( {$subQuery->getSqlString()} ) ";
+        $this->addSqlString("( {$subQuery->getSqlString()} )");
         $this->params = [...$this->params, ...$subQuery->getParams()];
         return $this;
     }
@@ -461,7 +473,7 @@ class TonicsQuery {
     public function JsonExtract(string $jsonDoc, string $path): static
     {
         $this->lastEmittedType = 'JSON_EXTRACT';
-        $this->sqlString .= "JSON_EXTRACT($jsonDoc, ?) ";
+        $this->addSqlString("JSON_EXTRACT($jsonDoc, ?)");
         $this->params = [...$this->params, $path];
         return $this;
     }
@@ -475,7 +487,7 @@ class TonicsQuery {
     {
         $this->lastEmittedType = 'JSON_SET';
         $mark = $this->returnRequiredQuestionMarks($path);
-        $this->sqlString .= "JSON_SET($jsonDoc, $mark) ";
+        $this->addSqlString("JSON_SET($jsonDoc, $mark)");
         $this->params = [...$this->params, ...$path];
         return $this;
     }
