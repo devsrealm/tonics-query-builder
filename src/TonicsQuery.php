@@ -541,6 +541,22 @@ class TonicsQuery {
         return $this;
     }
 
+    /**
+     * @param string $column
+     * @return $this
+     */
+    public function OrderByDesc(string $column): static
+    {
+        $orderBy = 'ORDER BY';
+        if($this->isLastEmitted('ORDER BY')){
+            $orderBy = '';
+        }
+
+        $this->lastEmittedType = 'ORDER BY';
+        $this->addSqlString("$orderBy $column DESC");
+        return $this;
+    }
+
 
     public function Or(): string
     {
