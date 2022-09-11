@@ -383,7 +383,14 @@ class TonicsQuery {
         return $this;
     }
 
-    protected function WhereIn_NotIn(string $col, $value, string $type = 'IN')
+    /**
+     * @param string $col
+     * @param $value
+     * @param string $type
+     * @return $this
+     * @throws \Exception
+     */
+    protected function WhereIn_NotIn(string $col, $value, string $type = 'IN'): static
     {
         if ($value instanceof \stdClass){
             $value = (array)$value;
@@ -409,7 +416,7 @@ class TonicsQuery {
     /**
      * @throws \Exception
      */
-    public function WhereIn(string $col, $value)
+    public function WhereIn(string $col, $value): static
     {
         return $this->WhereIn_NotIn($col, $value, 'IN');
     }
@@ -417,17 +424,17 @@ class TonicsQuery {
     /**
      * @throws \Exception
      */
-    public function WhereNotIn(string $col, $value)
+    public function WhereNotIn(string $col, $value): static
     {
         return $this->WhereIn_NotIn($col, $value, 'NOT IN');
     }
 
-    public function Or()
+    public function Or(): string
     {
         return 'OR ';
     }
 
-    public function And()
+    public function And(): string
     {
         return 'AND ';
     }
