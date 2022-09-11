@@ -254,14 +254,28 @@ class TonicsQuery {
     }
 
     /**
-     * @param string $column
+     * @param string $table
      * @return $this
      */
-    public function From(string $column): static
+    public function From(string $table): static
     {
         $this->lastEmittedType = 'FROM';
-        $this->sqlString .= "FROM $column ";
+        $this->sqlString .= "FROM $table ";
         return $this;
+    }
+
+    /**
+     * @param string $ifWhereUse
+     * @return string
+     */
+    protected function getWhere(string $ifWhereUse = 'AND'): string
+    {
+        $addWhere = 'WHERE';
+        if ($this->isLastEmitted('WHERE')){
+            $addWhere = $ifWhereUse;
+        }
+
+        return $addWhere;
     }
 
     /**
@@ -270,14 +284,43 @@ class TonicsQuery {
     public function Where(string $col, string $op, $value): static
     {
         $op = $this->getWhereOP($op);
-        if ($this->isLastEmitted('WHERE')){
-            $this->sqlString .= "AND $col $op ? ";
-        } else {
-            $this->lastEmittedType = 'WHERE';
-            $this->sqlString .= "WHERE $col $op ? ";
-        }
+        $this->lastEmittedType = 'WHERE';
+        $this->sqlString .= "{$this->getWhere()} $col $op ? ";
         $this->addParam($value);
 
+        return $this;
+    }
+
+    /**
+     * @param string $col
+     * @return $this
+     */
+    public function WhereNull(string $col): static
+    {
+        $this->lastEmittedType = 'WHERE';
+        $this->sqlString .= "{$this->getWhere()} $col IS NULL ";
+        return $this;
+    }
+
+    /**
+     * @param string $col
+     * @return $this
+     */
+    public function OrWhereNull(string $col): static
+    {
+        $this->lastEmittedType = 'WHERE';
+        $this->sqlString .= "{$this->getWhere('OR')} $col IS NULL ";
+        return $this;
+    }
+
+    /**
+     * @param string $col
+     * @return $this
+     */
+    public function WhereFalse(string $col): static
+    {
+        $this->lastEmittedType = 'WHERE';
+        $this->sqlString .= "{$this->getWhere()} $col = FALSE ";
         return $this;
     }
 
