@@ -615,6 +615,118 @@ class TonicsQuery {
         return $this;
     }
 
+    /**
+     * @param string $column
+     * @return $this
+     */
+    public function GroupBy(string $column): static
+    {
+        $groupBy = 'GROUP BY ';
+        if($this->isLastEmitted('GROUP BY')){
+            $groupBy = ', ';
+        }
+        $this->lastEmittedType = 'GROUP BY';
+        $this->addSqlString("$groupBy$column");
+        return $this;
+    }
+
+    /**
+     * @param $first
+     * @param $op
+     * @param $value
+     * @return $this
+     * @throws \Exception
+     */
+    public function Having($first, $op, $value): static
+    {
+        $op = $this->getWhereOP($op);
+        $having = 'HAVING';
+        if($this->isLastEmitted('HAVING')){
+            $having = 'AND';
+        }
+        $this->lastEmittedType = 'HAVING';
+        $this->addSqlString("$having $first $op ?");
+        $this->addParam($value);
+        return $this;
+    }
+
+    /**
+     * @throws \Exception
+     */
+    private function UnionReleated(TonicsQuery $subQuery, string $type = 'UNION'): static
+    {
+        $this->validateNewInstanceOfTonicsQuery($subQuery);
+        $this->addSqlString("$type ( {$subQuery->getSqlString()} )");
+        $this->addParams($subQuery->getParams());
+        return $this;
+    }
+
+    /**
+     * @param TonicsQuery $subQuery
+     * @return $this
+     * @throws \Exception
+     */
+    public function Union(TonicsQuery $subQuery): static
+    {
+        return $this->UnionReleated($subQuery);
+    }
+
+    /**
+     * @param TonicsQuery $subQuery
+     * @return $this
+     * @throws \Exception
+     */
+    public function UnionAll(TonicsQuery $subQuery): static
+    {
+        return $this->UnionReleated($subQuery, 'UNION ALL');
+    }
+
+    /**
+     * @param TonicsQuery $subQuery
+     * @return $this
+     * @throws \Exception
+     */
+    public function Intersect(TonicsQuery $subQuery): static
+    {
+        return $this->UnionReleated($subQuery, 'INTERSECT');
+    }
+
+    /**
+     * @param TonicsQuery $subQuery
+     * @return $this
+     * @throws \Exception
+     */
+    public function IntersectAll(TonicsQuery $subQuery): static
+    {
+        return $this->UnionReleated($subQuery, 'INTERSECT ALL');
+    }
+
+    /**
+     * @param TonicsQuery $subQuery
+     * @return $this
+     * @throws \Exception
+     */
+    public function Except(TonicsQuery $subQuery): static
+    {
+        return $this->UnionReleated($subQuery, 'EXCEPT');
+    }
+
+    /**
+     * @param TonicsQuery $subQuery
+     * @return $this
+     * @throws \Exception
+     */
+    public function ExceptAll(TonicsQuery $subQuery): static
+    {
+        return $this->UnionReleated($subQuery, 'EXCEPT ALL');
+    }
+
+
+    public function Join($table, $col, $col2, $op = '=')
+    {
+        //   INNER JOIN `Authors` ON `Authors`.`Id` = `Posts`.`AuthorId`
+    }
+
 
     public function Or(): string
     {
