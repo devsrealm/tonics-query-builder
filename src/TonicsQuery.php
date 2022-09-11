@@ -471,6 +471,30 @@ class TonicsQuery {
     }
 
     /**
+     * @param string $col
+     * @param string $value
+     * @return $this
+     */
+    public function WhereEnds(string $col, string $value): static
+    {
+        $this->addSqlString("{$this->getWhere()} $col LIKE CONCAT(?, ?)");
+        $this->addParams(['%', $value]);
+        return $this;
+    }
+
+    /**
+     * @param string $col
+     * @param string $value
+     * @return $this
+     */
+    public function WhereStarts(string $col, string $value): static
+    {
+        $this->addSqlString("{$this->getWhere()} $col LIKE CONCAT(?, ?)");
+        $this->addParams([$value, '%']);
+        return $this;
+    }
+
+    /**
      * @param int $number
      * @return TonicsQuery
      */
@@ -491,6 +515,13 @@ class TonicsQuery {
         $this->lastEmittedType = 'OFFSET';
         $this->addSqlString("OFFSET(?)");
         $this->addParam($number);
+        return $this;
+    }
+
+    public function OrderBy(string $column)
+    {
+        $this->lastEmittedType = 'ORDER BY';
+        $this->addSqlString("ORDER BY $column");
         return $this;
     }
 
