@@ -313,6 +313,37 @@ class TonicsQuery {
         return $this;
     }
 
+
+    /**
+     * @param string $col
+     * @param string $op
+     * @param string $value
+     * @return $this
+     * @throws \Exception
+     */
+    public function WhereDate(string $col, string $op, string $value): static
+    {
+        $op = $this->getWhereOP($op);
+        $this->addSqlString("{$this->getWhere()} DATE($col) $op ?");
+        $this->addParam($value);
+        return $this;
+    }
+
+    /**
+     * @param string $col
+     * @param string $op
+     * @param string $value
+     * @return $this
+     * @throws \Exception
+     */
+    public function WhereTime(string $col, string $op, string $value): static
+    {
+        $op = $this->getWhereOP($op);
+        $this->addSqlString("{$this->getWhere()} TIME($col) $op ?");
+        $this->addParam($value);
+        return $this;
+    }
+
     /**
      * @param string $col
      * @return $this
