@@ -274,7 +274,7 @@ class TonicsQuery {
         if ($this->isLastEmitted('WHERE')){
             $addWhere = $ifWhereUse;
         }
-
+        $this->lastEmittedType = 'WHERE';
         return $addWhere;
     }
 
@@ -284,7 +284,6 @@ class TonicsQuery {
     public function Where(string $col, string $op, $value): static
     {
         $op = $this->getWhereOP($op);
-        $this->lastEmittedType = 'WHERE';
         $this->sqlString .= "{$this->getWhere()} $col $op ? ";
         $this->addParam($value);
 
@@ -297,7 +296,6 @@ class TonicsQuery {
      */
     public function WhereNull(string $col): static
     {
-        $this->lastEmittedType = 'WHERE';
         $this->sqlString .= "{$this->getWhere()} $col IS NULL ";
         return $this;
     }
@@ -308,8 +306,27 @@ class TonicsQuery {
      */
     public function OrWhereNull(string $col): static
     {
-        $this->lastEmittedType = 'WHERE';
         $this->sqlString .= "{$this->getWhere('OR')} $col IS NULL ";
+        return $this;
+    }
+
+    /**
+     * @param string $col
+     * @return $this
+     */
+    public function WhereNotNull(string $col): static
+    {
+        $this->sqlString .= "{$this->getWhere()} $col IS NOT NULL ";
+        return $this;
+    }
+
+    /**
+     * @param string $col
+     * @return $this
+     */
+    public function OrWhereNotNull(string $col): static
+    {
+        $this->sqlString .= "{$this->getWhere('OR')} $col IS NOT NULL ";
         return $this;
     }
 
@@ -319,8 +336,37 @@ class TonicsQuery {
      */
     public function WhereFalse(string $col): static
     {
-        $this->lastEmittedType = 'WHERE';
         $this->sqlString .= "{$this->getWhere()} $col = FALSE ";
+        return $this;
+    }
+
+    /**
+     * @param string $col
+     * @return $this
+     */
+    public function OrWhereFalse(string $col): static
+    {
+        $this->sqlString .= "{$this->getWhere('OR')} $col = FALSE ";
+        return $this;
+    }
+
+    /**
+     * @param string $col
+     * @return $this
+     */
+    public function WhereTrue(string $col): static
+    {
+        $this->sqlString .= "{$this->getWhere()} $col = TRUE ";
+        return $this;
+    }
+
+    /**
+     * @param string $col
+     * @return $this
+     */
+    public function OrWhereTrue(string $col): static
+    {
+        $this->sqlString .= "{$this->getWhere('OR')} $col = TRUE ";
         return $this;
     }
 
