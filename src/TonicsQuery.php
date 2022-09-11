@@ -907,4 +907,23 @@ class TonicsQuery {
         }
         return $this;
     }
+
+    public function getPdo(): PDO
+    {
+        return $this->getTonicsQueryBuilder()->getPdo();
+    }
+
+    public function GetResult(): bool|array
+    {
+        $stmt = $this->getPdo()->prepare($this->getSqlString());
+        $stmt->execute($this->getParams());
+        return $stmt->fetchAll($this->getPdoFetchType());
+    }
+
+    public function GetFirst()
+    {
+        $stmt = $this->getPdo()->prepare($this->getSqlString());
+        $stmt->execute($this->getParams());
+        return $stmt->fetch($this->getPdoFetchType());
+    }
 }
