@@ -495,6 +495,18 @@ class TonicsQuery {
     }
 
     /**
+     * @param string $col
+     * @param string $value
+     * @return $this
+     */
+    public function WhereLike(string $col, string $value): static
+    {
+        $this->addSqlString("{$this->getWhere()} $col LIKE CONCAT(?, ?, ?)");
+        $this->addParams(['%', $value, '%']);
+        return $this;
+    }
+
+    /**
      * @param int $number
      * @return TonicsQuery
      */
@@ -518,6 +530,10 @@ class TonicsQuery {
         return $this;
     }
 
+    /**
+     * @param string $column
+     * @return $this
+     */
     public function OrderBy(string $column)
     {
         $this->lastEmittedType = 'ORDER BY';
