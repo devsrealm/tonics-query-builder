@@ -441,7 +441,7 @@ class TonicsQuery {
 
         if (is_array($value) && array_is_list($value)){
             $qmark = $this->returnRequiredQuestionMarks($value);
-            $this->addSqlString("{$addWhere} $col $type($qmark) ");
+            $this->addSqlString("{$addWhere} $col $type($qmark)");
             $this->addParams($value);
         }
 
@@ -553,7 +553,7 @@ class TonicsQuery {
      * @param string $column
      * @return $this
      */
-    public function OrderBy(string $column)
+    public function OrderBy(string $column): static
     {
         $orderBy = 'ORDER BY ';
         if($this->isLastEmitted('ORDER BY')){
@@ -577,6 +577,25 @@ class TonicsQuery {
 
         $this->lastEmittedType = 'ORDER BY';
         $this->addSqlString("$orderBy$column DESC");
+        return $this;
+    }
+
+    /**
+     * @param array|\stdClass $value
+     * @return $this
+     */
+    public function In(array|\stdClass$value): static
+    {
+        if ($value instanceof \stdClass){
+            $value = (array)$value;
+        }
+
+        if (is_array($value) && array_is_list($value)){
+            $qmark = $this->returnRequiredQuestionMarks($value);
+            $this->addSqlString("IN($qmark)");
+            $this->addParams($value);
+        }
+
         return $this;
     }
 
