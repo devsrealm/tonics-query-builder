@@ -180,7 +180,9 @@ class TonicsQuery {
      */
     public function addParams(array $params): static
     {
-        $this->params = [...$this->params, ...$params];
+        foreach ($params as $param){
+            $this->params[] = $param;
+        }
         return $this;
     }
 
@@ -292,7 +294,7 @@ class TonicsQuery {
         if ($value instanceof TonicsQuery){
             $this->validateNewInstanceOfTonicsQuery($value);
             $this->sqlString .= "{$this->getWhere()} $col $op ( {$value->getSqlString()} ) ";
-            $this->params = [...$this->params, ...$value->getParams()];
+            $this->addParams($value->getParams());
         } else {
             $this->sqlString .= "{$this->getWhere()} $col $op ? ";
             $this->addParam($value);
@@ -379,6 +381,55 @@ class TonicsQuery {
     {
         $this->sqlString .= "{$this->getWhere('OR')} $col = TRUE ";
         return $this;
+    }
+
+    protected function WhereIn_NotIn(string $col, $value, string $type = 'IN')
+    {
+        if ($value instanceof \stdClass){
+            $value = (array)$value;
+        }
+
+        $addWhere = $this->getWhere();
+
+        if (is_array($value) && array_is_list($value)){
+            $qmark = $this->returnRequiredQuestionMarks($value);
+            $this->addParams($value);
+            $this->sqlString .= "{$addWhere} $col $type($qmark) ";
+        }
+
+        if ($value instanceof TonicsQuery){
+            $this->validateNewInstanceOfTonicsQuery($value);
+            $this->sqlString .= "{$addWhere} $col $type ( {$value->getSqlString()} ) ";
+            $this->addParams($value->getParams());
+        }
+
+        return $this;
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function WhereIn(string $col, $value)
+    {
+        return $this->WhereIn_NotIn($col, $value, 'IN');
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function WhereNotIn(string $col, $value)
+    {
+        return $this->WhereIn_NotIn($col, $value, 'NOT IN');
+    }
+
+    public function Or()
+    {
+        return 'OR ';
+    }
+
+    public function And()
+    {
+        return 'AND ';
     }
 
     /**
