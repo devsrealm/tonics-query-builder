@@ -470,6 +470,29 @@ class TonicsQuery {
         return $this->WhereIn_NotIn($col, $value, 'NOT IN');
     }
 
+    /**
+     * @param int $number
+     * @return TonicsQuery
+     */
+    public function Limit(int $number): static
+    {
+        $this->lastEmittedType = 'LIMIT';
+        $this->addSqlString("LIMIT(?)");
+        $this->addParam($number);
+        return $this;
+    }
+
+    /**
+     * @param int $number
+     * @return TonicsQuery
+     */
+    public function Offset(int $number): static
+    {
+        $this->lastEmittedType = 'OFFSET';
+        $this->addSqlString("OFFSET(?)");
+        $this->addParam($number);
+        return $this;
+    }
 
 
     public function Or(): string
