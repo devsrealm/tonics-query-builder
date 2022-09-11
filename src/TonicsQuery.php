@@ -203,6 +203,47 @@ class TonicsQuery {
     }
 
     /**
+     * @param string $jsonDoc
+     * @param string $path
+     * @return $this
+     */
+    public function JsonExtract(string $jsonDoc, string $path): static
+    {
+        $this->lastEmittedType = 'JSON_EXTRACT';
+        $this->sqlString .= "JSON_EXTRACT($jsonDoc, ?) ";
+        $this->params = [...$this->params, $path];
+        return $this;
+    }
+
+    /**
+     * @param string $jsonDoc
+     * @param ...$path
+     * @return $this
+     */
+    public function JsonSet(string $jsonDoc, ...$path): static
+    {
+        // JSON_SET(properties, '$.time_modified', ?, '$.filename', ?)
+        $this->lastEmittedType = 'JSON_SET';
+        $mark = $this->returnRequiredQuestionMarks($path);
+        $this->sqlString .= "JSON_SET($jsonDoc, $mark) ";
+        $this->params = [...$this->params, ...$path];
+        return $this;
+    }
+
+    /**
+     * @param string $jsonDoc
+     * @param string $path
+     * @return $this
+     */
+    public function JsonExist(string $jsonDoc, string $path): static
+    {
+        $this->lastEmittedType = 'JSON_EXIST';
+        $this->sqlString .= "JSON_EXIST($jsonDoc, ?) ";
+        $this->params = [...$this->params, $path];
+        return $this;
+    }
+
+    /**
      * @param array $data
      * @return string
      */
