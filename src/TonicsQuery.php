@@ -234,6 +234,17 @@ class TonicsQuery {
     }
 
     /**
+     * @param string $column
+     * @return $this
+     */
+    public function From(string $column): static
+    {
+        $this->lastEmittedType = 'FROM';
+        $this->sqlString .= "FROM $column ";
+        return $this;
+    }
+
+    /**
      * @param TonicsQuery $subQuery
      * @return $this
      * @throws \Exception
