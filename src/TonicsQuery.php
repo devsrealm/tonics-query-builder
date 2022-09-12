@@ -1026,7 +1026,8 @@ class TonicsQuery {
 
         $stmt = $this->getPdo()->prepare($updateString);
         $stmt->execute($params);
-        return $stmt->fetch($this->getPdoFetchType());
+        $this->setRowCount($stmt->rowCount());
+        return $this->getRowCount() > 0;
     }
 
     /**
@@ -1047,7 +1048,7 @@ class TonicsQuery {
      * Get a new instance of TonicsQuery
      * @return TonicsQuery
      */
-    public function NewQ()
+    public function Q()
     {
         return $this->getTonicsQueryBuilder()->getNewQuery();
     }
