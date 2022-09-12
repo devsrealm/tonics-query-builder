@@ -961,7 +961,7 @@ class TonicsQuery {
      * @param string $primaryKey
      * @return \stdClass|bool
      */
-    public function InsertReturning(string $table, array $data, array $return, string $primaryKey): \stdClass|bool
+    public function InsertReturning(string $table, array $data, array $return, string $primaryKey): mixed
     {
         if (empty($data)) return false;
 
@@ -995,6 +995,41 @@ class TonicsQuery {
     }
 
     /**
+     * @param $table
+     * @param array $changes
+     * @param TonicsQuery $whereCondition
+     * @return mixed
+     */
+    public function Update($table, array $changes, TonicsQuery $whereCondition): mixed
+    {
+        $updateString = "UPDATE $table SET";
+        $params = [];
+
+        $pre = [];
+        foreach ($changes as $col => $v) {
+            if ($v === null) {
+                $pre []= " {$col} = NULL";
+            } elseif (is_bool($v)) {
+                if ($v === true) {
+                    $pre [] = " {$col} = TRUE ";
+                }else {
+                    $pre [] = " {$col} = FALSE ";
+                }
+            } else {
+                $pre [] = " {$col} = ?";
+                $params[] = $v;
+            }
+        }
+
+        $updateString .= implode(', ', $pre) . " {$whereCondition->getSqlString()} ";
+        $params = [...$params, ...$whereCondition->getParams()];
+
+        $stmt = $this->getPdo()->prepare($updateString);
+        $stmt->execute($params);
+        return $stmt->fetch($this->getPdoFetchType());
+    }
+
+    /**
      * For RAW SQL;
      *
      * <br>
@@ -1006,6 +1041,15 @@ class TonicsQuery {
     {
         $this->addSqlString($raw);
         return $this;
+    }
+
+    /**
+     * Get a new instance of TonicsQuery
+     * @return TonicsQuery
+     */
+    public function NewQ()
+    {
+        return $this->getTonicsQueryBuilder()->getNewQuery();
     }
 
     /**
