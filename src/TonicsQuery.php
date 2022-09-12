@@ -1002,7 +1002,11 @@ class TonicsQuery {
     }
 
     /**
-     * Update statement, could be followed by the `Set()` method
+     * Update statement, this won't update anything,
+     * it only adds the `UPDATE $table` statement to the SQLString.
+     *
+     * <br>
+     * Update statement can be followed by the `Set()` method
      * @param string $table
      * @return $this
      */
@@ -1047,9 +1051,14 @@ class TonicsQuery {
      */
     public function FastUpdate(string $table, array $updateChanges, TonicsQuery $whereCondition): mixed
     {
-        if (!array_is_list($updateChanges)){
+        if (empty($table)){
+            throw new \Exception("Table $table must be non empty string");
+        }
+
+        if (!array_is_list($updateChanges) || empty($updateChanges)){
             throw new \Exception("Update changes should be an array list");
         }
+
         $updateString = "UPDATE $table SET";
         $params = [];
 
@@ -1078,11 +1087,51 @@ class TonicsQuery {
         return $this->getRowCount() > 0;
     }
 
+
+    /**
+     * Delete statement, this won't delete anything,
+     * it only adds the `DELETE FROM $table` statement to the SQLString.
+     *
+     * <br>
+     * To delete, use the `FastDelete()` method
+     * @param string $table
+     * @return $this
+     */
+    public function Delete(string $table): static
+    {
+        $this->lastEmittedType = 'DELETE';
+        $this->addSqlString("DELETE FROM $table");
+        return $this;
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function FastDelete(string $table, TonicsQuery $whereCondition): bool|int
+    {
+        if (empty($table)){
+            throw new \Exception("Table $table must be non empty string");
+        }
+
+        $deleteString = "DELETE FROM $table ";
+        $whereConditionString = $whereCondition->getSqlString();
+        if (empty($whereConditionString)){
+            return 0;
+        }
+
+        $deleteString .= $whereConditionString;
+        $stmt = $this->getPdo()->prepare($deleteString);
+        $stmt->execute($whereCondition->getParams());
+        $this->setRowCount($stmt->rowCount());
+        return $this->getRowCount() > 0;
+
+    }
+
     /**
      * For RAW SQL;
      *
      * <br>
-     * Note: You should add the question mark if there is any, and use the addParam or addParams to add the paramter
+     * Note: You should add the question mark if there is any, and use the addParam or addParams to add the parameter
      * @param string $raw
      * @return $this
      */
