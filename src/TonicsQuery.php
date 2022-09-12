@@ -581,10 +581,11 @@ class TonicsQuery {
     }
 
     /**
-     * @param array|\stdClass $value
+     * @param $value
      * @return $this
+     * @throws \Exception
      */
-    public function In(array|\stdClass$value): static
+    public function In($value): static
     {
         if ($value instanceof \stdClass){
             $value = (array)$value;
@@ -594,6 +595,12 @@ class TonicsQuery {
             $qmark = $this->returnRequiredQuestionMarks($value);
             $this->addSqlString("IN($qmark)");
             $this->addParams($value);
+        }elseif (is_object($value)){
+            $this->validateNewInstanceOfTonicsQuery($value);
+            $this->addSqlString("IN ( {$value->getSqlString()} )");
+            $this->addParams($value->getParams());
+        } else {
+            throw new \Exception("In argument can only be an Array, Stdclass and a TonicsQuery Object");
         }
 
         return $this;
@@ -995,18 +1002,59 @@ class TonicsQuery {
     }
 
     /**
-     * @param $table
-     * @param array $changes
+     * Update statement, could be followed by the `Set()` method
+     * @param string $table
+     * @return $this
+     */
+    public function Update(string $table): static
+    {
+        $this->lastEmittedType = 'UPDATE';
+        $this->addSqlString("UPDATE $table ");
+        return $this;
+    }
+
+    /**
+     * @param $col
+     * @param string|TonicsQuery $value
+     * @return $this
+     * @throws \Exception
+     */
+    public function Set($col, string|TonicsQuery $value): static
+    {
+        $set = 'SET';
+        if($this->isLastEmitted('SET')){
+            $set = ',';
+        }
+        $this->lastEmittedType = 'SET';
+        if (is_object($value)){
+            $this->validateNewInstanceOfTonicsQuery($value);
+            $this->addSqlString("$set $col = {$value->getSqlString()} ");
+            $this->addParams($value->getParams());
+        } else {
+            $this->addSqlString("$set $col = ? ");
+            $this->addParam($value);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param string $table
+     * @param array $updateChanges
      * @param TonicsQuery $whereCondition
      * @return mixed
+     * @throws \Exception
      */
-    public function Update($table, array $changes, TonicsQuery $whereCondition): mixed
+    public function FastUpdate(string $table, array $updateChanges, TonicsQuery $whereCondition): mixed
     {
+        if (!array_is_list($updateChanges)){
+            throw new \Exception("Update changes should be an array list");
+        }
         $updateString = "UPDATE $table SET";
         $params = [];
 
         $pre = [];
-        foreach ($changes as $col => $v) {
+        foreach ($updateChanges as $col => $v) {
             if ($v === null) {
                 $pre []= " {$col} = NULL";
             } elseif (is_bool($v)) {
@@ -1162,6 +1210,7 @@ class TonicsQuery {
     {
         $stmt = $this->getPdo()->prepare($this->getSqlString());
         $stmt->execute($this->getParams());
+        $this->setRowCount($stmt->rowCount());
         return $stmt->fetchAll($this->getPdoFetchType());
     }
 
@@ -1169,6 +1218,7 @@ class TonicsQuery {
     {
         $stmt = $this->getPdo()->prepare($this->getSqlString());
         $stmt->execute($this->getParams());
+        $this->setRowCount($stmt->rowCount());
         return $stmt->fetch($this->getPdoFetchType());
     }
 }
