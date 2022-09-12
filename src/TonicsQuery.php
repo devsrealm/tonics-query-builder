@@ -808,9 +808,19 @@ class TonicsQuery {
         return $this;
     }
 
-    public function InsertSelect(TonicsQuery $tonicsQuery)
+    /**
+     * @param string $table
+     * @param string $col
+     * @param TonicsQuery $select
+     * @return bool
+     */
+    public function InsertSelect(string $table, string $col, TonicsQuery $select): bool
     {
-        $this->lastEmittedType = 'INSERT INTO';
+        $sql = "INSERT INTO $table ($col) {$select->getSqlString()}";
+        $stmt = $this->getPdo()->prepare($sql);
+        $stmt->execute($select->getParams());
+        $this->setRowCount($stmt->rowCount());
+        return $this->getRowCount() > 0;
     }
 
     /**
@@ -919,6 +929,51 @@ class TonicsQuery {
 
         $this->setRowCount($rowCount);
         return $this->getRowCount() > 0;
+    }
+
+    /**
+     * Insert and Return Data specified in $return.
+     *
+     * <br>
+     * Note: The $primaryKey is a way of providing an alternative approach to InsertReturning for other RDBMS
+     * that doesn't support it,
+     * @param string $table
+     * @param array $data
+     * @param array $return
+     * @param string $primaryKey
+     * @return \stdClass|bool
+     */
+    public function InsertReturning(string $table, array $data, array $return, string $primaryKey): \stdClass|bool
+    {
+        if (empty($data)) return false;
+
+        if (!is_array(reset($data))) $data = [$data];
+
+        if (!is_array(reset($return))) $return = [$return];
+
+        #
+        # VALIDATION AND DELIMITATION FOR RETURNING
+        #
+        $getReturningColumns = (array)array_values(reset($return));
+        $delimitedReturningColumns = $this->escapeDelimitedColumns($getReturningColumns);
+
+        #
+        # VALIDATION AND DELIMITATION FOR THE ACTUAL COLUMN
+        #
+        $getColumns = array_keys(reset($data));
+        # e.g, "`column1`,`column1`,`column1`",
+        $delimitedColumns = $this->escapeDelimitedColumns($getColumns);
+        $numberOfQ = $this->returnRequiredQuestionMarksSurroundedWithParenthesis($data);
+
+        #
+        # SQL PREPARE, INSERTION AND DATA RETURNING
+        #
+        $sql = "INSERT INTO $table ($delimitedColumns) VALUES $numberOfQ RETURNING $delimitedReturningColumns";
+        $stmt = $this->getPdo()->prepare($sql);
+        $flattened = iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveArrayIterator($data)), 0);
+        $stmt->execute($flattened);
+        $this->setRowCount($stmt->rowCount());
+        return $stmt->fetch($this->getPdoFetchType());
     }
 
     /**
