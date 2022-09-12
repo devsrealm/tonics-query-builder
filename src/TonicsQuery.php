@@ -809,6 +809,114 @@ class TonicsQuery {
     }
 
     /**
+     * For Insertion or Batch Insertion, use below format for single insert:
+     *
+     * `["genre_name" => "Acoustic", "genre_slug" => "acoustic", "genre_description" => "Acoustic"]`
+     *
+     * <br>
+     * and use below format for batch insertion:
+     * ```
+     * [
+     *  ["genre_name" => "Acoustic", "genre_slug" => "acoustic", "genre_description" => "Acoustic"],
+     *  ["genre_name" => "Afrobeat", "genre_slug" => "afrobeat", "genre_description" => "Afrobeat"]
+     * ]
+     *  array_key is the table_column, and array_value is the value of the column
+     * ```
+     * @param string $table
+     * name of the table
+     * @param array $data
+     * @param int $chunkInsertRate
+     * @return bool
+     */
+    public function insert(string $table, array $data, int $chunkInsertRate = 1000): bool
+    {
+
+        if (empty($data)) return false;
+
+        if (!is_array(reset($data))) $data = [$data];
+
+        # This gets the array_keys of the first element in the array
+        # which would act as the columns of all the array
+        $getColumns = array_keys(reset($data));
+        # e.g, "`column1`,`column1`,`column1`",
+        $delimitedColumns = $this->escapeDelimitedColumns($getColumns);
+
+        $rowCount = 0;
+
+        #
+        # Chunking Operation Begins
+        #
+        foreach (array_chunk($data, $chunkInsertRate) as $toInsert){
+            $numberOfQ = $this->returnRequiredQuestionMarksSurroundedWithParenthesis($toInsert);
+            # we would throw away the keys in the multidimensional array and flatten it into 1d array
+            $flattened = iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveArrayIterator($toInsert)), 0);
+            # SQL
+            $sql = "INSERT INTO $table ($delimitedColumns) VALUES $numberOfQ;";
+            # Prepare Statement and execute it ;P
+            $stmt = $this->getPdo()->prepare($sql);
+            $stmt->execute($flattened);
+            $rowCount += $stmt->rowCount();
+        }
+
+        $this->setRowCount($rowCount);
+        return $this->getRowCount() > 0;
+    }
+
+    /**
+     * This Either Insert or Update New Record if matched by unique or primary key
+     * @param string $table
+     * Table name
+     * @param array $data
+     * Data To Insert
+     * @param array $update
+     * Update Keys
+     * @param int $chunkInsertRate
+     * How many records to insert at a time, the default is okay, but you can experiment with more
+     * @return false
+     * @throws \Exception
+     */
+    public function insertOnDuplicate(string $table, array $data, array $update, int $chunkInsertRate = 1000): bool
+    {
+
+        if (empty($data)) return false;
+
+        if (!is_array(reset($data))) $data = [$data];
+
+        #
+        # VALIDATION AND DELIMITATION FOR $data
+        #
+        $getColumns = array_keys(reset($data));
+        $delimitedColumns = $this->escapeDelimitedColumns($getColumns);
+
+        $rowCount = 0;
+
+        #
+        # Chunking Operation Begins
+        #
+        foreach (array_chunk($data, $chunkInsertRate) as $toInsert){
+            $numberOfQ = $this->returnRequiredQuestionMarksSurroundedWithParenthesis($toInsert);
+
+            if (!is_array(reset($update))){
+                $update = [$update];
+            }
+            $update = array_values(reset($update));
+            #
+            # SQL PREPARE, INSERTION AND DATA RETURNING
+            #
+            $delimitedForInsertOnDuplicate = $this->delimitedForInsertOnDuplicate($update);
+            $flattened = iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveArrayIterator($toInsert)), 0);
+
+            $sql = "INSERT INTO $table ($delimitedColumns) VALUES $numberOfQ ON DUPLICATE KEY UPDATE $delimitedForInsertOnDuplicate";
+            $stmt = $this->getPdo()->prepare($sql);
+            $stmt->execute($flattened);
+            $rowCount += $stmt->rowCount();
+        }
+
+        $this->setRowCount($rowCount);
+        return $this->getRowCount() > 0;
+    }
+
+    /**
      * @param array $data
      * @return string
      */
