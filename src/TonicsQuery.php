@@ -764,7 +764,7 @@ class TonicsQuery {
         $this->lastEmittedType = 'SubQuery';
         $this->validateNewInstanceOfTonicsQuery($subQuery);
         $this->addSqlString("( {$subQuery->getSqlString()} )");
-        $this->params = [...$this->params, ...$subQuery->getParams()];
+        $this->addParams($subQuery->getParams());
         return $this;
     }
 
@@ -777,7 +777,7 @@ class TonicsQuery {
     {
         $this->lastEmittedType = 'JSON_EXTRACT';
         $this->addSqlString("JSON_EXTRACT($jsonDoc, ?)");
-        $this->params = [...$this->params, $path];
+        $this->addParam($path);
         return $this;
     }
 
@@ -791,7 +791,7 @@ class TonicsQuery {
         $this->lastEmittedType = 'JSON_SET';
         $mark = $this->returnRequiredQuestionMarks($path);
         $this->addSqlString("JSON_SET($jsonDoc, $mark)");
-        $this->params = [...$this->params, ...$path];
+        $this->addParams($path);
         return $this;
     }
 
@@ -803,9 +803,14 @@ class TonicsQuery {
     public function JsonExist(string $jsonDoc, string $path): static
     {
         $this->lastEmittedType = 'JSON_EXIST';
-        $this->sqlString .= "JSON_EXIST($jsonDoc, ?) ";
-        $this->params = [...$this->params, $path];
+        $this->addSqlString("JSON_EXIST($jsonDoc, ?)");
+        $this->addParam($path);
         return $this;
+    }
+
+    public function InsertSelect(TonicsQuery $tonicsQuery)
+    {
+        $this->lastEmittedType = 'INSERT INTO';
     }
 
     /**
