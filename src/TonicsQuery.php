@@ -1096,7 +1096,7 @@ class TonicsQuery {
      * Get a new instance of TonicsQuery
      * @return TonicsQuery
      */
-    public function Q()
+    public function Q(): TonicsQuery
     {
         return $this->getTonicsQueryBuilder()->getNewQuery();
     }
