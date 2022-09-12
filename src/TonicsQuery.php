@@ -725,7 +725,7 @@ class TonicsQuery {
     {
         $with = 'WITH';
         if($this->isLastEmitted('WITH')){
-            $having = ',';
+            $with = ',';
         }
         $recursiveName = '';
         if($recursive){
@@ -737,10 +737,28 @@ class TonicsQuery {
         return $this;
     }
 
-
-    public function Join($table, $col, $col2, $op = '=')
+    private function JoinRelative(string $table, string $col, string $col2, string $op = '=', string $type = 'INNER JOIN')
     {
-        //   INNER JOIN `Authors` ON `Authors`.`Id` = `Posts`.`AuthorId`
+        $this->lastEmittedType = $type;
+        $op = $this->getWhereOP($op);
+        $this->addSqlString("$type $table ON $col $op $col2");
+        return $this;
+    }
+
+
+    public function Join($table, $col, $col2, $op = '='): static
+    {
+        return $this->JoinRelative($table, $col, $col2, $op);
+    }
+
+    public function LeftJoin($table, $col, $col2, $op = '='): static
+    {
+        return $this->JoinRelative($table, $col, $col2, $op, 'LEFT JOIN');
+    }
+
+    public function RightJoin($table, $col, $col2, $op = '='): static
+    {
+        return $this->JoinRelative($table, $col, $col2, $op, 'RIGHT JOIN');
     }
 
 
@@ -974,6 +992,20 @@ class TonicsQuery {
         $stmt->execute($flattened);
         $this->setRowCount($stmt->rowCount());
         return $stmt->fetch($this->getPdoFetchType());
+    }
+
+    /**
+     * For RAW SQL;
+     *
+     * <br>
+     * Note: You should add the question mark if there is any, and use the addParam or addParams to add the paramter
+     * @param string $raw
+     * @return $this
+     */
+    public function Raw(string $raw): static
+    {
+        $this->addSqlString($raw);
+        return $this;
     }
 
     /**
