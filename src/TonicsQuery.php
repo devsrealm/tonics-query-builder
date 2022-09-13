@@ -596,22 +596,6 @@ class TonicsQuery {
     }
 
     /**
-     * @param string $column
-     * @return $this
-     */
-    public function OrderByDesc(string $column): static
-    {
-        $orderBy = 'ORDER BY ';
-        if($this->isLastEmitted('ORDER BY')){
-            $orderBy = ', ';
-        }
-
-        $this->lastEmittedType = 'ORDER BY';
-        $this->addSqlString("$orderBy$column DESC");
-        return $this;
-    }
-
-    /**
      * @param $value
      * @return $this
      * @throws \Exception
@@ -634,6 +618,22 @@ class TonicsQuery {
             throw new \Exception("In argument can only be an Array, Stdclass and a TonicsQuery Object");
         }
 
+        return $this;
+    }
+
+    /**
+     * @param string $column
+     * @return $this
+     */
+    public function OrderByDesc(string $column): static
+    {
+        $orderBy = 'ORDER BY ';
+        if($this->isLastEmitted('ORDER BY')){
+            $orderBy = ', ';
+        }
+
+        $this->lastEmittedType = 'ORDER BY';
+        $this->addSqlString("$orderBy$column DESC");
         return $this;
     }
 
@@ -920,7 +920,7 @@ class TonicsQuery {
      * since most RDMS would rewrite the query without the SubQuery, so, you are fine.
      *
      * <br>
-     * Note: Feel free to use the `Paginate()` method if you want to do things your way
+     * Note: Feel free to use the `Paginate()` method if you want to do things your way.
      * @param int $perPage
      * @param string $pageName
      * @return object|null
@@ -928,10 +928,10 @@ class TonicsQuery {
      */
     public function SimplePaginate(int $perPage = 10, string $pageName = 'page'): ?object
     {
-        $newQuery = $this->getTonicsQueryBuilder()->getNewQuery();
+        $newQuery = $this->Q();
         $tableRows = $newQuery->Select('')->Count()
             ->As('`rows`')->From(" ( {$this->getSqlString()} ) ")
-            ->As('count')->addParams($this->getParams())->GetFirst();
+            ->As('count')->addParams($this->getParams())->FetchFirst();
 
         if (!isset($tableRows->rows)){
             $tableRows = 0;
@@ -940,8 +940,13 @@ class TonicsQuery {
         }
 
         return $this->paginate($tableRows, function ($perPage, $offset){
-            return  $this->Take($perPage)->Skip($offset)->GetResult();
+            return  $this->Take($perPage)->Skip($offset)->FetchResult();
         }, $perPage, $pageName);
+    }
+
+    public function SimpleKeyset(string $predicate, int $perPage = 10)
+    {
+
     }
 
     /**
@@ -1478,7 +1483,10 @@ class TonicsQuery {
         return $this->getTonicsQueryBuilder()->getPdo();
     }
 
-    public function GetResult(): bool|array
+    /**
+     * @return bool|array
+     */
+    public function FetchResult(): bool|array
     {
         $stmt = $this->getPdo()->prepare($this->getSqlString());
         $stmt->execute($this->getParams());
@@ -1486,7 +1494,10 @@ class TonicsQuery {
         return $stmt->fetchAll($this->getPdoFetchType());
     }
 
-    public function GetFirst()
+    /**
+     * @return mixed
+     */
+    public function FetchFirst()
     {
         $stmt = $this->getPdo()->prepare($this->getSqlString());
         $stmt->execute($this->getParams());
