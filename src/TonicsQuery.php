@@ -266,13 +266,21 @@ class TonicsQuery {
     }
 
     /**
-     * @param string $table
+     * @param string|TonicsQuery $table
      * @return $this
+     * @throws \Exception
      */
-    public function From(string $table): static
+    public function From(string|TonicsQuery $table): static
     {
         $this->lastEmittedType = 'FROM';
-        $this->addSqlString("FROM $table");
+        if (is_object($table)){
+            $this->validateNewInstanceOfTonicsQuery($table);
+            $this->addSqlString("FROM ( {$table->getSqlString()} )");
+            $this->params = [...$this->params, ...$table->getParams()];
+        } else {
+            $this->addSqlString("FROM $table");
+        }
+
         return $this;
     }
 
@@ -507,13 +515,24 @@ class TonicsQuery {
     }
 
     /**
+     * @param string $string
+     * @return $this
+     */
+    public function As(string $string): static
+    {
+        $this->lastEmittedType = 'AS';
+        $this->addSqlString("AS $string");
+        return $this;
+    }
+
+    /**
      * @param int $number
      * @return TonicsQuery
      */
     public function Limit(int $number): static
     {
         $this->lastEmittedType = 'LIMIT';
-        $this->addSqlString("LIMIT(?)");
+        $this->addSqlString("LIMIT ?");
         $this->addParam($number);
         return $this;
     }
@@ -534,7 +553,7 @@ class TonicsQuery {
     public function Offset(int $number): static
     {
         $this->lastEmittedType = 'OFFSET';
-        $this->addSqlString("OFFSET(?)");
+        $this->addSqlString("OFFSET ?");
         $this->addParam($number);
         return $this;
     }
@@ -546,6 +565,18 @@ class TonicsQuery {
     public function Skip(int $number): static
     {
         return $this->Offset($number);
+    }
+
+    /**
+     * @param string $name
+     * @return $this
+     */
+    public function Count(string $name = '*'): static
+    {
+        $this->lastEmittedType = 'OFFSET';
+        $this->addSqlString("COUNT(?)");
+        $this->addParam($name);
+        return $this;
     }
 
 
@@ -831,6 +862,86 @@ class TonicsQuery {
         $this->addSqlString("JSON_EXIST($jsonDoc, ?)");
         $this->addParam($path);
         return $this;
+    }
+
+    /**
+     * @param int $tableRows
+     * The total number of rows that can be returned in the query you'll be performing
+     * @param \Closure $callback
+     * You would get the perPage and offset in the callback parameter which you can then do some queries with and return us the result of the query....
+     * So, we can take care of the rest of the pagination implementation
+     * @param int $perPage
+     * How many rows to retrieve per page when paginating
+     * @param string $pageName
+     * The page url query name, i.e ?page=20 (the pagename is `page`, which tells us what page to move to in the pagination window)
+     * @return object|null
+     * @throws \Exception
+     */
+    public function Paginate(
+        int $tableRows,
+        \Closure $callback,
+        int $perPage = 5,
+        string $pageName = 'page',
+    ): ?object
+    {
+
+        # The reason for doing ($tableRows / $perPage) is to determine the number of total pages we can paginate through
+        $totalPages = (int)ceil($tableRows / $perPage);
+
+        $params = $this->getURLParams();
+        # current page - The page the user is currently on, if we can't find the page number, we default to the first page
+        $page = 1;
+        if(isset($params[$pageName])){
+            $page = filter_var($params[$pageName], FILTER_SANITIZE_NUMBER_INT);
+        }
+
+        #
+        # Get the Offset based on the current page
+        # The offset would determine the numbers of rows to skip before
+        # returning result.
+        $offset = ($page - 1) * $perPage;
+
+        $result = $callback($perPage, $offset);
+        if ($result) {
+            #
+            # ARRANGE THE PAGINATION RESULT
+            return $this->arrangePagination(
+                sqlResult: $result,
+                page: $page,
+                totalPages: $totalPages,
+                perPage: $perPage, pageName: $pageName);
+        }
+        return null;
+    }
+
+    /**
+     * The simple paginate method uses a subQuery to get the count of the rows,
+     * and then passes that to the Paginate methdd, you can use this most of the time
+     * since most RDMS would rewrite the query witout the SubQuery, so, you are fine.
+     *
+     * <br>
+     * Note: Feel free to use the `Paginate()` method if you want to do things your way
+     * @param int $perPage
+     * @param string $pageName
+     * @return object|null
+     * @throws \Exception
+     */
+    public function SimplePaginate(int $perPage = 10, string $pageName = 'page'): ?object
+    {
+        $newQuery = $this->getTonicsQueryBuilder()->getNewQuery();
+        $tableRows = $newQuery->Select('')->Count()
+            ->As('`rows`')->From(" ( {$this->getSqlString()} ) ")
+            ->As('count')->addParams($this->getParams())->GetFirst();
+
+        if (!isset($tableRows->rows)){
+            $tableRows = 0;
+        } else {
+            $tableRows = $tableRows->rows;
+        }
+
+        return $this->paginate($tableRows, function ($perPage, $offset){
+            return  $this->Take($perPage)->Skip($offset)->GetResult();
+        }, $perPage, $pageName);
     }
 
     /**
@@ -1249,6 +1360,118 @@ class TonicsQuery {
         }
         return $this;
     }
+
+    protected function getURLParams()
+    {
+        $params = [];
+        parse_str($_SERVER['QUERY_STRING'], $params);
+        return $params;
+    }
+
+    protected function cleanUrl(string $url): string
+    {
+        ## D preg_replace converts multiple slashes to one.
+        ## FILTER_SANITIZE_URL remove illegal chars from the url
+        ## rtrim remove slash from the end e.g /name/book/ becomes  /name/book
+        return rtrim(filter_var(preg_replace("#//+#", "\\1/", $url), FILTER_SANITIZE_URL), '/');
+    }
+
+    /**
+     * @inheritDoc
+     */
+    protected function getRequestURL(): string
+    {
+        $url = strtok($_SERVER['REQUEST_URI'], '?');
+        return $this->cleanUrl($url);
+    }
+
+    protected function getRequestURLWithQueryString(): string
+    {
+        $queryString = http_build_query($this->getURLParams());
+        $urlPathWithoutQueryString = $this->getRequestURL();
+        return $urlPathWithoutQueryString . '?' . $queryString;
+    }
+
+    /**
+     * @param string $queryString
+     * e.g "page=55" or "page=55&id=600" (you use the & symbol to add more query key and value)
+     */
+    protected function appendQueryString(string $queryString): static
+    {
+        $params = [];
+        parse_str($queryString, $params);
+        if(count($params) > 0) {
+            $this->setParams(array_merge($this->getURLParams(), $params));
+        }
+        return $this;
+    }
+
+    /**
+     * @param $sqlResult
+     * @param $page
+     * @param $totalPages
+     * @param $perPage
+     * @param $pageName
+     * @return object
+     * @throws \Exception
+     */
+    private function arrangePagination($sqlResult, $page, $totalPages, $perPage, $pageName): object
+    {
+        $currentUrl = $this->getRequestURLWithQueryString();
+        $numberLinks = []; $windowSize = 5;
+        if ($page > 1) {
+            // Number links that should appear on the left
+            for($i = $page - $windowSize; $i < $page; $i++){
+                if($i > 0){
+                    $numberLinks[] = [
+                        'link' => $this->appendQueryString("$pageName=" . $i)->getRequestURLWithQueryString(),
+                        'number' => $i,
+                        'current' => false,
+                        'current_text' => 'Page Number ' . $i,
+                    ];
+                }
+            }
+        }
+        // current page
+        $numberLinks[] = [
+            'link' => $this->appendQueryString("$pageName=" . $page)->getRequestURLWithQueryString(),
+            'number' => $page,
+            'current' => true,
+            'current_text' => 'Current Page',
+        ];
+        // Number links that should appear on the right
+        for($i = $page + 1; $i <= $totalPages; $i++){
+            $numberLinks[] = [
+                'link' => $this->appendQueryString("$pageName=" . $i)->getRequestURLWithQueryString(),
+                'number' => $i,
+                'current' => false,
+                'current_text' => 'Page Number ' . $i,
+            ];
+            if($i >= $page + $windowSize){
+                break;
+            }
+        }
+
+        return (object)[
+            'current_page' => (int)$page,
+            'data' => $sqlResult,
+            'path' => $currentUrl,
+            'first_page_url' => $this->appendQueryString("$pageName=1")->getRequestURLWithQueryString(),
+            'next_page_url' => ($page != $totalPages) ? $this->appendQueryString("$pageName=" . ($page + 1))->getRequestURLWithQueryString() : null,
+            'prev_page_url' => ($page > 1) ? $this->appendQueryString("$pageName=" . ($page - 1))->getRequestURLWithQueryString() : null,
+            'from' => 1,
+            'next_page' => ($page != $totalPages) ? $page + 1: null,
+            'last_page' => $totalPages,
+            'last_page_url' => $this->appendQueryString("$pageName=" . $totalPages)->getRequestURLWithQueryString(),
+            'per_page' => $perPage,
+            'to' => $totalPages,
+            'total' => $totalPages,
+            'has_more' => !(((int)$page === $totalPages)),
+            'number_links' => $numberLinks
+        ];
+
+    }
+
 
     public function getPdo(): PDO
     {
