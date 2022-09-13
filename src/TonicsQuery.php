@@ -866,14 +866,14 @@ class TonicsQuery {
 
     /**
      * @param int $tableRows
-     * The total number of rows that can be returned in the query you'll be performing
+     * The total number of rows
      * @param \Closure $callback
-     * You would get the perPage and offset in the callback parameter which you can then do some queries with and return us the result of the query....
-     * So, we can take care of the rest of the pagination implementation
+     * You would get the perPage and offset in the callback parameter which you can then do some queries with and return the result of the query....
+     * So, I can take care of the rest of the pagination implementation
      * @param int $perPage
      * How many rows to retrieve per page when paginating
      * @param string $pageName
-     * The page url query name, i.e ?page=20 (the pagename is `page`, which tells us what page to move to in the pagination window)
+     * The page url query name, i.e ?page=20 (the pagename is `page`, which tells me what page to move to in the pagination window)
      * @return object|null
      * @throws \Exception
      */
@@ -915,9 +915,9 @@ class TonicsQuery {
     }
 
     /**
-     * The simple paginate method uses a subQuery to get the count of the rows,
-     * and then passes that to the Paginate methdd, you can use this most of the time
-     * since most RDMS would rewrite the query witout the SubQuery, so, you are fine.
+     * The `SimplePaginate()` method uses a subQuery to get the count of the rows,
+     * and then passes that to the Paginate method, you can use this most of the time
+     * since most RDMS would rewrite the query without the SubQuery, so, you are fine.
      *
      * <br>
      * Note: Feel free to use the `Paginate()` method if you want to do things your way
