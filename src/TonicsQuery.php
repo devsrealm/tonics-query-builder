@@ -865,6 +865,19 @@ class TonicsQuery {
     }
 
     /**
+     * If the jsonDocs should use a parameter binding, then you do it yourself
+     * @param string $jsonDoc
+     * @param string $jsonDoc2
+     * @return $this
+     */
+    public function JsonMergePatch(string $jsonDoc, string $jsonDoc2): static
+    {
+        $this->lastEmittedType = 'JSON_MERGE_PATCH';
+        $this->addSqlString("JSON_MERGE_PATCH($jsonDoc $jsonDoc2");
+        return $this;
+    }
+
+    /**
      * @param int $tableRows
      * The total number of rows
      * @param \Closure $callback
@@ -1268,6 +1281,7 @@ class TonicsQuery {
         return $this->getTonicsQueryBuilder()->getNewQuery();
     }
 
+
     /**
      * @param array $data
      * @return string
@@ -1509,6 +1523,19 @@ class TonicsQuery {
         $stmt->execute($params);
         $this->setRowCount($stmt->rowCount());
         return $stmt->fetchAll($this->getPdoFetchType());
+    }
+
+    /**
+     * @param string $statement
+     * @param ...$params
+     * @return array|false
+     */
+    public function row(string $statement, ...$params): bool|array
+    {
+        $stmt = $this->getPdo()->prepare($statement);
+        $stmt->execute($params);
+        $this->setRowCount($stmt->rowCount());
+        return $stmt->fetch($this->getPdoFetchType());
     }
 
 
