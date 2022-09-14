@@ -248,7 +248,7 @@ class TonicsQuery {
      * @return $this
      * @throws \Exception
      */
-    public function Select(string|TonicsQuery $select): static
+    public function Select(string|TonicsQuery $select = ''): static
     {
         if ($this->isLastEmitted('SELECT')){
             if (is_object($select)){
@@ -829,11 +829,11 @@ class TonicsQuery {
      * @param string $path
      * @return $this
      */
-    public function JsonExtract(string $jsonDoc, string $path): static
+    public function JsonExtract(string $jsonDoc, string $path, string $accessor = '$.'): static
     {
         $this->lastEmittedType = 'JSON_EXTRACT';
         $this->addSqlString("JSON_EXTRACT($jsonDoc, ?)");
-        $this->addParam($path);
+        $this->addParam($accessor . $path);
         return $this;
     }
 
@@ -856,11 +856,11 @@ class TonicsQuery {
      * @param string $path
      * @return $this
      */
-    public function JsonExist(string $jsonDoc, string $path): static
+    public function JsonExist(string $jsonDoc, string $path, string $accessor = '$.'): static
     {
         $this->lastEmittedType = 'JSON_EXIST';
         $this->addSqlString("JSON_EXIST($jsonDoc, ?)");
-        $this->addParam($path);
+        $this->addParam($accessor. $path);
         return $this;
     }
 
