@@ -944,11 +944,6 @@ class TonicsQuery {
         }, $perPage, $pageName);
     }
 
-    public function SimpleKeyset(string $predicate, int $perPage = 10)
-    {
-
-    }
-
     /**
      * @param string $table
      * @param string $col
@@ -984,7 +979,7 @@ class TonicsQuery {
      * @param int $chunkInsertRate
      * @return bool
      */
-    public function insert(string $table, array $data, int $chunkInsertRate = 1000): bool
+    public function Insert(string $table, array $data, int $chunkInsertRate = 1000): bool
     {
 
         if (empty($data)) return false;
@@ -1031,7 +1026,7 @@ class TonicsQuery {
      * @return false
      * @throws \Exception
      */
-    public function insertOnDuplicate(string $table, array $data, array $update, int $chunkInsertRate = 1000): bool
+    public function InsertOnDuplicate(string $table, array $data, array $update, int $chunkInsertRate = 1000): bool
     {
 
         if (empty($data)) return false;
@@ -1221,6 +1216,9 @@ class TonicsQuery {
     }
 
     /**
+     * @param string $table
+     * @param TonicsQuery $whereCondition
+     * @return bool|int
      * @throws \Exception
      */
     public function FastDelete(string $table, TonicsQuery $whereCondition): bool|int
@@ -1256,6 +1254,10 @@ class TonicsQuery {
         $this->addSqlString($raw);
         return $this;
     }
+
+    #
+    # THE BELOW ARE HELPERS
+    #
 
     /**
      * Get a new instance of TonicsQuery
@@ -1497,7 +1499,7 @@ class TonicsQuery {
     /**
      * @return mixed
      */
-    public function FetchFirst()
+    public function FetchFirst(): mixed
     {
         $stmt = $this->getPdo()->prepare($this->getSqlString());
         $stmt->execute($this->getParams());
