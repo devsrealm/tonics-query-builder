@@ -691,7 +691,7 @@ class TonicsQuery {
     /**
      * @throws \Exception
      */
-    private function UnionReleated(TonicsQuery $subQuery, string $type = 'UNION'): static
+    private function UnionRelated(TonicsQuery $subQuery, string $type = 'UNION'): static
     {
         $this->validateNewInstanceOfTonicsQuery($subQuery);
         $this->addSqlString("$type ( {$subQuery->getSqlString()} )");
@@ -706,7 +706,7 @@ class TonicsQuery {
      */
     public function Union(TonicsQuery $subQuery): static
     {
-        return $this->UnionReleated($subQuery);
+        return $this->UnionRelated($subQuery);
     }
 
     /**
@@ -716,7 +716,7 @@ class TonicsQuery {
      */
     public function UnionAll(TonicsQuery $subQuery): static
     {
-        return $this->UnionReleated($subQuery, 'UNION ALL');
+        return $this->UnionRelated($subQuery, 'UNION ALL');
     }
 
     /**
@@ -726,7 +726,7 @@ class TonicsQuery {
      */
     public function Intersect(TonicsQuery $subQuery): static
     {
-        return $this->UnionReleated($subQuery, 'INTERSECT');
+        return $this->UnionRelated($subQuery, 'INTERSECT');
     }
 
     /**
@@ -736,7 +736,7 @@ class TonicsQuery {
      */
     public function IntersectAll(TonicsQuery $subQuery): static
     {
-        return $this->UnionReleated($subQuery, 'INTERSECT ALL');
+        return $this->UnionRelated($subQuery, 'INTERSECT ALL');
     }
 
     /**
@@ -746,7 +746,7 @@ class TonicsQuery {
      */
     public function Except(TonicsQuery $subQuery): static
     {
-        return $this->UnionReleated($subQuery, 'EXCEPT');
+        return $this->UnionRelated($subQuery, 'EXCEPT');
     }
 
     /**
@@ -756,7 +756,7 @@ class TonicsQuery {
      */
     public function ExceptAll(TonicsQuery $subQuery): static
     {
-        return $this->UnionReleated($subQuery, 'EXCEPT ALL');
+        return $this->UnionRelated($subQuery, 'EXCEPT ALL');
     }
 
     public function With(string $cteName, TonicsQuery $cteBody, bool $recursive = false)
