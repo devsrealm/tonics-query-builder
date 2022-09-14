@@ -1176,15 +1176,15 @@ class TonicsQuery {
         $pre = [];
         foreach ($updateChanges as $col => $v) {
             if ($v === null) {
-                $pre []= " {$col} = NULL";
+                $pre []= " $col = NULL";
             } elseif (is_bool($v)) {
                 if ($v === true) {
-                    $pre [] = " {$col} = TRUE ";
+                    $pre [] = " $col = TRUE ";
                 }else {
-                    $pre [] = " {$col} = FALSE ";
+                    $pre [] = " $col = FALSE ";
                 }
             } else {
-                $pre [] = " {$col} = ?";
+                $pre [] = " $col = ?";
                 $params[] = $v;
             }
         }
