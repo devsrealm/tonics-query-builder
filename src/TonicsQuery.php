@@ -775,7 +775,7 @@ class TonicsQuery {
         return $this;
     }
 
-    private function JoinRelative(string $table, string $col, string $col2, string $op = '=', string $type = 'INNER JOIN')
+    private function JoinRelative(string $table, string $col, string $col2, string $op = '=', string $type = 'INNER JOIN'): static
     {
         $this->lastEmittedType = $type;
         $op = $this->getWhereOP($op);
@@ -1368,13 +1368,17 @@ class TonicsQuery {
         return $this;
     }
 
-    protected function getURLParams()
+    protected function getURLParams(): array
     {
         $params = [];
         parse_str($_SERVER['QUERY_STRING'], $params);
         return $params;
     }
 
+    /**
+     * @param string $url
+     * @return string
+     */
     protected function cleanUrl(string $url): string
     {
         ## D preg_replace converts multiple slashes to one.
