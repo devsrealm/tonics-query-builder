@@ -1480,7 +1480,35 @@ class TonicsQuery {
             'has_more' => !(((int)$page === $totalPages)),
             'number_links' => $numberLinks
         ];
+    }
 
+    /**
+     * This is a standalone query and as such, the statement wouldn't be added to the SqlString
+     * however, the row count would be saved in the rowCount property, so, you can check the rowCount if you like
+     * @param string $statement
+     * @param ...$params
+     * @return array|int
+     */
+    public function query(string $statement, ...$params): array|int
+    {
+        $stmt = $this->getPdo()->prepare($statement);
+        $stmt->execute($params);
+        $this->setRowCount($stmt->rowCount());
+        return $stmt->fetchAll($this->getPdoFetchType());
+    }
+
+    /**
+     * Alias for `query()`
+     * @param string $statement
+     * @param ...$params
+     * @return array|false
+     */
+    public function run(string $statement, ...$params): bool|array
+    {
+        $stmt = $this->getPdo()->prepare($statement);
+        $stmt->execute($params);
+        $this->setRowCount($stmt->rowCount());
+        return $stmt->fetchAll($this->getPdoFetchType());
     }
 
 
