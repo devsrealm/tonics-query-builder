@@ -1179,10 +1179,6 @@ class TonicsQuery {
             throw new \Exception("Table $table must be non empty string");
         }
 
-        if (!array_is_list($updateChanges) || empty($updateChanges)){
-            throw new \Exception("Update changes should be an array list");
-        }
-
         $updateString = "UPDATE $table SET";
         $params = [];
 
@@ -1230,7 +1226,9 @@ class TonicsQuery {
 
     /**
      * @param string $table
+     * Table you wanna delete from
      * @param TonicsQuery $whereCondition
+     * The where condition
      * @return bool|int
      * @throws \Exception
      */
@@ -1528,9 +1526,9 @@ class TonicsQuery {
     /**
      * @param string $statement
      * @param ...$params
-     * @return array|false
+     * @return mixed
      */
-    public function row(string $statement, ...$params): bool|array
+    public function row(string $statement, ...$params): mixed
     {
         $stmt = $this->getPdo()->prepare($statement);
         $stmt->execute($params);
@@ -1542,6 +1540,16 @@ class TonicsQuery {
     public function getPdo(): PDO
     {
         return $this->getTonicsQueryBuilder()->getPdo();
+    }
+
+    public function beginTransaction(): bool
+    {
+        return $this->getTonicsQueryBuilder()->getPdo()->beginTransaction();
+    }
+
+    public function commit(): bool
+    {
+        return $this->getTonicsQueryBuilder()->getPdo()->commit();
     }
 
     /**
