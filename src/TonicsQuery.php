@@ -321,6 +321,16 @@ class TonicsQuery {
         return $this;
     }
 
+    /**
+     * @param string $col
+     * @param $value
+     * @return $this
+     * @throws \Exception
+     */
+    public function WhereEquals(string $col, $value): static
+    {
+        return $this->Where($col, '=', $value);
+    }
 
     /**
      * @param string $col
@@ -334,6 +344,18 @@ class TonicsQuery {
         $op = $this->getWhereOP($op);
         $this->addSqlString("{$this->getWhere()} DATE($col) $op ?");
         $this->addParam($value);
+        return $this;
+    }
+
+    /**
+     * @param string $date
+     * @param string $format
+     * @return $this
+     */
+    public function WhereDateFormat(string $date, string $format = '%Y-%m-%d %H:%i:%s'): static
+    {
+        $this->addSqlString("{$this->getWhere()} DATE_FORMAT(?, ?)");
+        $this->addParams([$date, $format]);
         return $this;
     }
 
@@ -1368,7 +1390,7 @@ class TonicsQuery {
      * @param callable|null $callbackElse
      * @return static
      */
-    public function if($condition, callable $callback, callable $callbackElse = null): static
+    public function when($condition, callable $callback, callable $callbackElse = null): static
     {
         if ($condition) {
             $callback($this);

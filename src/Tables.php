@@ -89,6 +89,17 @@ abstract class Tables
     }
 
     /**
+     * @param $table
+     * @param array $column
+     * @return string
+     * @throws \Exception
+     */
+    public function pickTableExcept($table, array $column): string
+    {
+        return $this->except([$table => $column]);
+    }
+
+    /**
      * @param string $tableName
      * @param string $col
      * @return string
