@@ -1620,6 +1620,11 @@ class TonicsQuery {
         return $this->getTonicsQueryBuilder()->getPdo()->commit();
     }
 
+    public function rollBack()
+    {
+        return $this->getTonicsQueryBuilder()->getPdo()->rollBack();
+    }
+
     /**
      * @return bool|array
      */
