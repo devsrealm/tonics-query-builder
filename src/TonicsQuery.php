@@ -13,12 +13,17 @@ class TonicsQuery {
 
     private int $pdoFetchType = PDO::FETCH_OBJ;
     private ?int $rowCount = null;
+    private array $urlParams = [];
 
     public function __construct(TonicsQueryBuilder $tonicsQueryBuilder = null)
     {
         if ($tonicsQueryBuilder){
             $this->tonicsQueryBuilder = $tonicsQueryBuilder;
         }
+
+        $params = [];
+        parse_str($_SERVER['QUERY_STRING'], $params);
+        $this->setURLParams($params);
     }
 
     const Equals = 'Equals';
@@ -317,6 +322,25 @@ class TonicsQuery {
             $this->addSqlString("{$this->getWhere()} $col $op ?");
             $this->addParam($value);
         }
+
+        return $this;
+    }
+
+    /**
+     * @param string $col
+     * @param TonicsQuery $min
+     * @param TonicsQuery $max
+     * @return $this
+     * @throws \Exception
+     */
+    public function WhereBetween(string $col, TonicsQuery $min, TonicsQuery $max): static
+    {
+        $this->validateNewInstanceOfTonicsQuery($min);
+        $this->validateNewInstanceOfTonicsQuery($max);
+
+        $this->addSqlString("{$this->getWhere()} $col BETWEEN {$min->getSqlString()} AND {$max->getSqlString()}");
+        $this->addParams($min->getParams());
+        $this->addParams($max->getParams());
 
         return $this;
     }
@@ -707,6 +731,18 @@ class TonicsQuery {
         $this->lastEmittedType = 'HAVING';
         $this->addSqlString("$having $first $op ?");
         $this->addParam($value);
+        return $this;
+    }
+
+    /**
+     * @param string $date
+     * @param string $format
+     * @return $this
+     */
+    public function DateFormat(string $date, string $format = '%Y-%m-%d %H:%i:%s'): static
+    {
+        $this->addSqlString("DATE_FORMAT(?, ?)");
+        $this->addParams([$date, $format]);
         return $this;
     }
 
@@ -1402,13 +1438,6 @@ class TonicsQuery {
         return $this;
     }
 
-    protected function getURLParams(): array
-    {
-        $params = [];
-        parse_str($_SERVER['QUERY_STRING'], $params);
-        return $params;
-    }
-
     /**
      * @param string $url
      * @return string
@@ -1419,6 +1448,21 @@ class TonicsQuery {
         ## FILTER_SANITIZE_URL remove illegal chars from the url
         ## rtrim remove slash from the end e.g /name/book/ becomes  /name/book
         return rtrim(filter_var(preg_replace("#//+#", "\\1/", $url), FILTER_SANITIZE_URL), '/');
+    }
+
+    protected function getURLParams(): array
+    {
+        return $this->urlParams;
+    }
+
+    /**
+     * @param array $params
+     * @return TonicsQuery
+     */
+    public function setURLParams(array $params): TonicsQuery
+    {
+        $this->urlParams = $params;
+        return $this;
     }
 
     /**
@@ -1443,10 +1487,12 @@ class TonicsQuery {
      */
     protected function appendQueryString(string $queryString): static
     {
+
         $params = [];
         parse_str($queryString, $params);
+        $params = [...$this->getURLParams(), ...$params];
         if(count($params) > 0) {
-            $this->setParams(array_merge($this->getURLParams(), $params));
+            $this->setURLParams($params);
         }
         return $this;
     }
