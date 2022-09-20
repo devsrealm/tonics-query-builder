@@ -868,6 +868,12 @@ class TonicsQuery {
         return 'AND ';
     }
 
+    public function addRawString(string $raw): static
+    {
+        $this->addSqlString($raw);
+        return $this;
+    }
+
     /**
      * @param TonicsQuery $subQuery
      * @return $this
@@ -885,6 +891,7 @@ class TonicsQuery {
     /**
      * @param string $jsonDoc
      * @param string $path
+     * @param string $accessor
      * @return $this
      */
     public function JsonExtract(string $jsonDoc, string $path, string $accessor = '$.'): static
