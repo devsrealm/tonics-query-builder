@@ -263,7 +263,7 @@ class TonicsQuery {
             }
             throw new \Exception("Last emitted type was select, the current select arg should be a TonicsQuery Object");
         } else {
-            $this->lastEmittedType = 'SELECT';
+            $this->setLastEmittedType('SELECT');
             $this->addSqlString("SELECT $select");
         }
 
@@ -277,7 +277,7 @@ class TonicsQuery {
      */
     public function From(string|TonicsQuery $table): static
     {
-        $this->lastEmittedType = 'FROM';
+        $this->setLastEmittedType('FROM');
         if (is_object($table)){
             $this->validateNewInstanceOfTonicsQuery($table);
             $this->addSqlString("FROM ( {$table->getSqlString()} )");
@@ -299,7 +299,7 @@ class TonicsQuery {
         if ($this->isLastEmitted('WHERE')){
             $addWhere = $ifWhereUse;
         }
-        $this->lastEmittedType = 'WHERE';
+        $this->setLastEmittedType('WHERE');
         return $addWhere;
     }
 
@@ -566,7 +566,7 @@ class TonicsQuery {
      */
     public function As(string $string): static
     {
-        $this->lastEmittedType = 'AS';
+        $this->setLastEmittedType('AS');
         $this->addSqlString("AS $string");
         return $this;
     }
@@ -577,7 +577,7 @@ class TonicsQuery {
      */
     public function Limit(int $number): static
     {
-        $this->lastEmittedType = 'LIMIT';
+        $this->setLastEmittedType('LIMIT');
         $this->addSqlString("LIMIT ?");
         $this->addParam($number);
         return $this;
@@ -598,7 +598,7 @@ class TonicsQuery {
      */
     public function Offset(int $number): static
     {
-        $this->lastEmittedType = 'OFFSET';
+        $this->setLastEmittedType('OFFSET');
         $this->addSqlString("OFFSET ?");
         $this->addParam($number);
         return $this;
@@ -619,7 +619,7 @@ class TonicsQuery {
      */
     public function Count(string $name = '*'): static
     {
-        $this->lastEmittedType = 'OFFSET';
+        $this->setLastEmittedType('COUNT');
         $this->addSqlString("COUNT(?)");
         $this->addParam($name);
         return $this;
@@ -636,7 +636,7 @@ class TonicsQuery {
         if($this->isLastEmitted('ORDER BY')){
             $orderBy = ', ';
         }
-        $this->lastEmittedType = 'ORDER BY';
+        $this->setLastEmittedType('ORDER BY');
         $this->addSqlString("$orderBy$column");
         return $this;
     }
@@ -678,7 +678,7 @@ class TonicsQuery {
             $orderBy = ', ';
         }
 
-        $this->lastEmittedType = 'ORDER BY';
+        $this->setLastEmittedType('ORDER BY');
         $this->addSqlString("$orderBy$column DESC");
         return $this;
     }
@@ -694,7 +694,7 @@ class TonicsQuery {
             $orderBy = ', ';
         }
 
-        $this->lastEmittedType = 'ORDER BY';
+        $this->setLastEmittedType('ORDER BY');
         $this->addSqlString("$orderBy$column ASC");
         return $this;
     }
@@ -709,7 +709,8 @@ class TonicsQuery {
         if($this->isLastEmitted('GROUP BY')){
             $groupBy = ', ';
         }
-        $this->lastEmittedType = 'GROUP BY';
+
+        $this->setLastEmittedType('GROUP BY');
         $this->addSqlString("$groupBy$column");
         return $this;
     }
@@ -728,7 +729,7 @@ class TonicsQuery {
         if($this->isLastEmitted('HAVING')){
             $having = 'AND';
         }
-        $this->lastEmittedType = 'HAVING';
+        $this->setLastEmittedType('HAVING');
         $this->addSqlString("$having $first $op ?");
         $this->addParam($value);
         return $this;
@@ -827,32 +828,65 @@ class TonicsQuery {
         if($recursive){
             $recursiveName = 'RECURSIVE';
         }
-        $this->lastEmittedType = 'WITH';
+        $this->setLastEmittedType('WITH');
         $this->addSqlString("$with $recursiveName $cteName AS ( {$cteBody->getSqlString()} )");
         $this->addParams($cteBody->getParams());
         return $this;
     }
 
+    /**
+     * @param string $table
+     * @param string $col
+     * @param string $col2
+     * @param string $op
+     * @param string $type
+     * @return $this
+     * @throws \Exception
+     */
     private function JoinRelative(string $table, string $col, string $col2, string $op = '=', string $type = 'INNER JOIN'): static
     {
-        $this->lastEmittedType = $type;
+        $this->setLastEmittedType($type);
         $op = $this->getWhereOP($op);
         $this->addSqlString("$type $table ON $col $op $col2");
         return $this;
     }
 
 
-    public function Join($table, $col, $col2, $op = '='): static
+    /**
+     * @param $table
+     * @param $col
+     * @param $col2
+     * @param string $op
+     * @return $this
+     * @throws \Exception
+     */
+    public function Join($table, $col, $col2, string $op = '='): static
     {
         return $this->JoinRelative($table, $col, $col2, $op);
     }
 
-    public function LeftJoin($table, $col, $col2, $op = '='): static
+    /**
+     * @param $table
+     * @param $col
+     * @param $col2
+     * @param string $op
+     * @return $this
+     * @throws \Exception
+     */
+    public function LeftJoin($table, $col, $col2, string $op = '='): static
     {
         return $this->JoinRelative($table, $col, $col2, $op, 'LEFT JOIN');
     }
 
-    public function RightJoin($table, $col, $col2, $op = '='): static
+    /**
+     * @param $table
+     * @param $col
+     * @param $col2
+     * @param string $op
+     * @return $this
+     * @throws \Exception
+     */
+    public function RightJoin($table, $col, $col2, string $op = '='): static
     {
         return $this->JoinRelative($table, $col, $col2, $op, 'RIGHT JOIN');
     }
@@ -881,7 +915,7 @@ class TonicsQuery {
      */
     public function SubQuery(TonicsQuery $subQuery): static
     {
-        $this->lastEmittedType = 'SubQuery';
+        $this->setLastEmittedType('SubQuery');
         $this->validateNewInstanceOfTonicsQuery($subQuery);
         $this->addSqlString("( {$subQuery->getSqlString()} )");
         $this->addParams($subQuery->getParams());
@@ -896,7 +930,7 @@ class TonicsQuery {
      */
     public function JsonExtract(string $jsonDoc, string $path, string $accessor = '$.'): static
     {
-        $this->lastEmittedType = 'JSON_EXTRACT';
+        $this->setLastEmittedType('JSON_EXTRACT');
         $this->addSqlString("JSON_EXTRACT($jsonDoc, ?)");
         $this->addParam($accessor . $path);
         return $this;
@@ -909,7 +943,7 @@ class TonicsQuery {
      */
     public function JsonSet(string $jsonDoc, ...$path): static
     {
-        $this->lastEmittedType = 'JSON_SET';
+        $this->setLastEmittedType('JSON_SET');
         $mark = $this->returnRequiredQuestionMarks($path);
         $this->addSqlString("JSON_SET($jsonDoc, $mark)");
         $this->addParams($path);
@@ -919,11 +953,12 @@ class TonicsQuery {
     /**
      * @param string $jsonDoc
      * @param string $path
+     * @param string $accessor
      * @return $this
      */
     public function JsonExist(string $jsonDoc, string $path, string $accessor = '$.'): static
     {
-        $this->lastEmittedType = 'JSON_EXIST';
+        $this->setLastEmittedType('JSON_EXIST');
         $this->addSqlString("JSON_EXIST($jsonDoc, ?)");
         $this->addParam($accessor. $path);
         return $this;
