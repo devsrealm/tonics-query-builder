@@ -1236,7 +1236,7 @@ class TonicsQuery {
      */
     public function Update(string $table): static
     {
-        $this->lastEmittedType = 'UPDATE';
+        $this->setLastEmittedType('UPDATE');
         $this->addSqlString("UPDATE $table ");
         return $this;
     }
@@ -1253,7 +1253,7 @@ class TonicsQuery {
         if($this->isLastEmitted('SET')){
             $set = ',';
         }
-        $this->lastEmittedType = 'SET';
+        $this->setLastEmittedType('SET');
         if (is_object($value)){
             $this->validateNewInstanceOfTonicsQuery($value);
             $this->addSqlString("$set $col = {$value->getSqlString()} ");
@@ -1270,10 +1270,10 @@ class TonicsQuery {
      * @param string $table
      * @param array $updateChanges
      * @param TonicsQuery $whereCondition
-     * @return mixed
+     * @return bool
      * @throws \Exception
      */
-    public function FastUpdate(string $table, array $updateChanges, TonicsQuery $whereCondition): mixed
+    public function FastUpdate(string $table, array $updateChanges, TonicsQuery $whereCondition): bool
     {
         if (empty($table)){
             throw new \Exception("Table $table must be non empty string");
@@ -1319,7 +1319,7 @@ class TonicsQuery {
      */
     public function Delete(string $table): static
     {
-        $this->lastEmittedType = 'DELETE';
+        $this->setLastEmittedType('DELETE');
         $this->addSqlString("DELETE FROM $table");
         return $this;
     }
@@ -1329,10 +1329,10 @@ class TonicsQuery {
      * Table you wanna delete from
      * @param TonicsQuery $whereCondition
      * The where condition
-     * @return bool|int
+     * @return bool
      * @throws \Exception
      */
-    public function FastDelete(string $table, TonicsQuery $whereCondition): bool|int
+    public function FastDelete(string $table, TonicsQuery $whereCondition): bool
     {
         if (empty($table)){
             throw new \Exception("Table $table must be non empty string");
@@ -1662,7 +1662,7 @@ class TonicsQuery {
         return $this->getTonicsQueryBuilder()->getPdo()->commit();
     }
 
-    public function rollBack()
+    public function rollBack(): bool
     {
         return $this->getTonicsQueryBuilder()->getPdo()->rollBack();
     }
