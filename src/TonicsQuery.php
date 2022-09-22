@@ -972,7 +972,7 @@ class TonicsQuery {
      */
     public function JsonMergePatch(string $jsonDoc, string $jsonDoc2): static
     {
-        $this->lastEmittedType = 'JSON_MERGE_PATCH';
+        $this->setLastEmittedType('JSON_MERGE_PATCH');
         $this->addSqlString("JSON_MERGE_PATCH($jsonDoc $jsonDoc2");
         return $this;
     }
