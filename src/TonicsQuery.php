@@ -15,6 +15,8 @@ class TonicsQuery {
     private ?int $rowCount = null;
     private array $urlParams = [];
 
+    private bool $closeTonicQueryPassedToParam = true;
+
     public function __construct(TonicsQueryBuilder $tonicsQueryBuilder = null)
     {
         if ($tonicsQueryBuilder){
@@ -22,7 +24,8 @@ class TonicsQuery {
         }
 
         $params = [];
-        parse_str($_SERVER['QUERY_STRING'], $params);
+        $queryString = (isset($_SERVER['QUERY_STRING'])) ? $_SERVER['QUERY_STRING'] : '';
+        parse_str($queryString, $params);
         $this->setURLParams($params);
     }
 
@@ -247,7 +250,7 @@ class TonicsQuery {
     /**
      * If you have multiple fluent Select method, e.g:
      *
-     * `Select()->Select()` the second Select arg should be a TonicsQuery Object, and it would be subqueried,
+     * `Select()->Select()` the second Select arg should be a TonicsQuery Object, and it would be sub-queried,
      * besides, you do not need to add SELECT in the object, it would be added automatically.
      * @param string|TonicsQuery $select
      * @return $this
@@ -260,8 +263,13 @@ class TonicsQuery {
                 $this->validateNewInstanceOfTonicsQuery($select);
                 $this->addSqlString("( SELECT {$select->getSqlString()} )");
                 $this->params = [...$this->params, ...$select->getParams()];
+
+               $this->checkAndCloseTonicsQueryPassedToParam($select);
+
+            } else {
+                throw new \Exception("Last emitted type was select, the current select arg should be a TonicsQuery Object");
             }
-            throw new \Exception("Last emitted type was select, the current select arg should be a TonicsQuery Object");
+
         } else {
             $this->setLastEmittedType('SELECT');
             $this->addSqlString("SELECT $select");
@@ -282,6 +290,9 @@ class TonicsQuery {
             $this->validateNewInstanceOfTonicsQuery($table);
             $this->addSqlString("FROM ( {$table->getSqlString()} )");
             $this->params = [...$this->params, ...$table->getParams()];
+
+            $this->checkAndCloseTonicsQueryPassedToParam($table);
+
         } else {
             $this->addSqlString("FROM $table");
         }
@@ -308,18 +319,22 @@ class TonicsQuery {
      * @param string $col
      * @param string $op
      * @param $value
+     * @param string $ifWhereUse
      * @return $this
      * @throws \Exception
      */
-    public function Where(string $col, string $op, $value): static
+    public function Where(string $col, string $op, $value, string $ifWhereUse = 'AND'): static
     {
         $op = $this->getWhereOP($op);
         if ($value instanceof TonicsQuery){
             $this->validateNewInstanceOfTonicsQuery($value);
-            $this->addSqlString("{$this->getWhere()} $col $op ( {$value->getSqlString()} )");
+            $this->addSqlString("{$this->getWhere($ifWhereUse)} $col $op ( {$value->getSqlString()} )");
             $this->addParams($value->getParams());
+
+            $this->checkAndCloseTonicsQueryPassedToParam($value);
+
         } else {
-            $this->addSqlString("{$this->getWhere()} $col $op ?");
+            $this->addSqlString("{$this->getWhere($ifWhereUse)} $col $op ?");
             $this->addParam($value);
         }
 
@@ -342,6 +357,8 @@ class TonicsQuery {
         $this->addParams($min->getParams());
         $this->addParams($max->getParams());
 
+        $this->checkAndCloseTonicsQueryPassedToParam([$min, $max]);
+
         return $this;
     }
 
@@ -354,6 +371,26 @@ class TonicsQuery {
     public function WhereEquals(string $col, $value): static
     {
         return $this->Where($col, '=', $value);
+    }
+
+    /**
+     * @param string $col
+     * @param $value
+     * @return $this
+     * @throws \Exception
+     */
+    public function WhereNotEquals(string $col, $value): static
+    {
+        return $this->Where($col, '!=', $value);
+    }
+
+    /**
+     * @param string $col
+     * @return $this
+     */
+    public function OrWhereEquals(string $col, $value): static
+    {
+        return $this->Where($col, '=', $value, 'OR');
     }
 
     /**
@@ -485,24 +522,30 @@ class TonicsQuery {
      * @return $this
      * @throws \Exception
      */
-    protected function WhereIn_NotIn(string $col, $value, string $type = 'IN'): static
+    public function WhereIn_NotIn(string $col, $value, string $type = 'IN', string $ifWhereUse = 'AND'): static
     {
         if ($value instanceof \stdClass){
             $value = (array)$value;
         }
 
-        $addWhere = $this->getWhere();
-
-        if (is_array($value) && array_is_list($value)){
-            $qmark = $this->returnRequiredQuestionMarks($value);
-            $this->addSqlString("{$addWhere} $col $type($qmark)");
-            $this->addParams($value);
-        }
+        $addWhere = $this->getWhere($ifWhereUse);
 
         if ($value instanceof TonicsQuery){
             $this->validateNewInstanceOfTonicsQuery($value);
             $this->addSqlString("{$addWhere} $col $type ( {$value->getSqlString()} )");
             $this->addParams($value->getParams());
+            $this->checkAndCloseTonicsQueryPassedToParam($value);
+            return $this;
+        }
+
+        if (!is_array($value)){
+            $value = [$value];
+        }
+
+        if (is_array($value) && array_is_list($value)){
+            $qmark = $this->returnRequiredQuestionMarks($value);
+            $this->addSqlString("{$addWhere} $col $type($qmark)");
+            $this->addParams($value);
         }
 
         return $this;
@@ -519,9 +562,25 @@ class TonicsQuery {
     /**
      * @throws \Exception
      */
+    public function OrWhereIn(string $col, $value): static
+    {
+        return $this->WhereIn_NotIn($col, $value, 'IN', 'OR');
+    }
+
+    /**
+     * @throws \Exception
+     */
     public function WhereNotIn(string $col, $value): static
     {
         return $this->WhereIn_NotIn($col, $value, 'NOT IN');
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function OrWhereNotIn(string $col, $value): static
+    {
+        return $this->WhereIn_NotIn($col, $value, 'NOT IN', 'OR');
     }
 
     /**
@@ -575,8 +634,12 @@ class TonicsQuery {
      * @param int $number
      * @return TonicsQuery
      */
-    public function Limit(int $number): static
+    public function Limit(int|string $number): static
     {
+        if (!is_numeric($number)) {
+            throw new \Exception("$number should be numberic in LIMIT");
+        }
+
         $this->setLastEmittedType('LIMIT');
         $this->addSqlString("LIMIT ?");
         $this->addParam($number);
@@ -660,6 +723,7 @@ class TonicsQuery {
             $this->validateNewInstanceOfTonicsQuery($value);
             $this->addSqlString("IN ( {$value->getSqlString()} )");
             $this->addParams($value->getParams());
+            $this->checkAndCloseTonicsQueryPassedToParam($value);
         } else {
             throw new \Exception("In argument can only be an Array, Stdclass and a TonicsQuery Object");
         }
@@ -671,7 +735,7 @@ class TonicsQuery {
      * @param string $column
      * @return $this
      */
-    public function OrderByDesc(string $column): static
+    public function OrderByDesc(string $column, callable $onCol = null): static
     {
         $orderBy = 'ORDER BY ';
         if($this->isLastEmitted('ORDER BY')){
@@ -679,6 +743,9 @@ class TonicsQuery {
         }
 
         $this->setLastEmittedType('ORDER BY');
+        if ($onCol){
+            $column = $onCol($column);
+        }
         $this->addSqlString("$orderBy$column DESC");
         return $this;
     }
@@ -687,7 +754,7 @@ class TonicsQuery {
      * @param string $column
      * @return $this
      */
-    public function OrderByAsc(string $column): static
+    public function OrderByAsc(string $column, callable $onCol = null): static
     {
         $orderBy = 'ORDER BY ';
         if($this->isLastEmitted('ORDER BY')){
@@ -695,6 +762,9 @@ class TonicsQuery {
         }
 
         $this->setLastEmittedType('ORDER BY');
+        if ($onCol){
+            $column = $onCol($column);
+        }
         $this->addSqlString("$orderBy$column ASC");
         return $this;
     }
@@ -755,6 +825,9 @@ class TonicsQuery {
         $this->validateNewInstanceOfTonicsQuery($subQuery);
         $this->addSqlString("$type ( {$subQuery->getSqlString()} )");
         $this->addParams($subQuery->getParams());
+
+        $this->checkAndCloseTonicsQueryPassedToParam($subQuery);
+
         return $this;
     }
 
@@ -831,6 +904,7 @@ class TonicsQuery {
         $this->setLastEmittedType('WITH');
         $this->addSqlString("$with $recursiveName $cteName AS ( {$cteBody->getSqlString()} )");
         $this->addParams($cteBody->getParams());
+        $this->checkAndCloseTonicsQueryPassedToParam($cteBody);
         return $this;
     }
 
@@ -909,6 +983,19 @@ class TonicsQuery {
     }
 
     /**
+     * @param string $subject
+     * @param string $search
+     * @param string $replace
+     * @return $this
+     */
+    public function Replace(string $subject, string $search, string $replace)
+    {
+        $this->setLastEmittedType('REPLACE');
+        $this->addSqlString("REPLACE(?, ?, ?)");
+        $this->addParams([$subject, $search, $replace]);
+        return $this;
+    }
+    /**
      * @param TonicsQuery $subQuery
      * @return $this
      * @throws \Exception
@@ -919,6 +1006,7 @@ class TonicsQuery {
         $this->validateNewInstanceOfTonicsQuery($subQuery);
         $this->addSqlString("( {$subQuery->getSqlString()} )");
         $this->addParams($subQuery->getParams());
+        $this->checkAndCloseTonicsQueryPassedToParam($subQuery);
         return $this;
     }
 
@@ -937,16 +1025,94 @@ class TonicsQuery {
     }
 
     /**
+     * Updates or inserts data into a JSON document, here are couple of examples:
+     *
+     * <br>
+     *
+     * Update or insert a json document:
+     *
+     * ```
+     * $db->Update($tableName)->Set('others', db()->JsonSet('others', '$', json_encode($instance)))->...
+     * ```
+     *
+     * <br>
+     *
+     * Update or insert to multiple path:
+     *
+     * ```
+     * $db->Update($tableName)->Set('others', db()->JsonSet('others', '$.one', json_encode($instance), '$.two', json_encode($instance)))->...
+     * ```
+     *
+     * <br>
+     *
+     * Update or insert a nested json data (the JsonCompact is mandatory so mariadb knows, you are inserting a json in a nested path):
+     *
+     * ```
+     * $db->Update($tableName)->Set('others', db()->JsonSet('others', '$.instance', db()->JsonCompact(json_encode($instance))))
+     * ```
+     *
+     * @param string $jsonDoc Col where the json data is stored
+     * @param ...$params
+     * @return $this
+     */
+    public function JsonSet(string $jsonDoc, ...$params): static
+    {
+        $this->setLastEmittedType('JSON_SET');
+        $string = ''; $keyLast = array_key_last($params);
+        foreach ($params as $key => $param){
+            if (is_object($param) && $param instanceof TonicsQuery){
+                $string .= " ( {$param->getSqlString()} )";
+                $this->addParams($param->getParams());
+            }
+
+            if (is_string($param) || is_int($param)){
+                $string .= " ?";
+                $this->addParams([$param]);
+            }
+
+            if ($keyLast !== $key){
+                $string .= ",";
+            }
+        }
+        $this->addSqlString("JSON_SET($jsonDoc, $string)");
+        return $this;
+    }
+
+    /**
      * @param string $jsonDoc
      * @param ...$path
      * @return $this
      */
-    public function JsonSet(string $jsonDoc, ...$path): static
+    public function JsonRemove(string $jsonDoc, ...$path): static
     {
-        $this->setLastEmittedType('JSON_SET');
+        $this->setLastEmittedType('JSON_REMOVE');
         $mark = $this->returnRequiredQuestionMarks($path);
-        $this->addSqlString("JSON_SET($jsonDoc, $mark)");
+        $this->addSqlString("JSON_REMOVE($jsonDoc, $mark)");
         $this->addParams($path);
+        return $this;
+    }
+
+    /**
+     * @param string $value
+     * @return $this
+     */
+    public function JsonUnquote(string $value): static
+    {
+        $this->setLastEmittedType('JSON_UNQUOTE');
+        $this->addSqlString("JSON_UNQUOTE(?)");
+        $this->addParams($value);
+        return $this;
+    }
+
+    /**
+     * @param string $value
+     * @return $this
+     */
+    public function JsonCompact(string $value): static
+    {
+        $this->setLastEmittedType('JSON_COMPACT');
+        $this->addSqlString("JSON_COMPACT(?)");
+        $this->addParams([$value]);
         return $this;
     }
 
@@ -965,6 +1131,39 @@ class TonicsQuery {
     }
 
     /**
+     * @param string $jsonDoc
+     * @param string $path
+     * @param string $accessor
+     * @return $this
+     */
+    public function JsonContain(string $jsonDoc, string $path, string $value, string $accessor = '$.'): static
+    {
+        $this->setLastEmittedType('JSON_CONTAINS');
+        $this->addSqlString("JSON_CONTAINS($jsonDoc, ?, ?)");
+        $this->addParam($value);
+        $this->addParam($accessor. $path);
+        return $this;
+    }
+
+    /**
+     * @param string $jsonDoc
+     * @param string $path
+     * @param string $value
+     * @param string $accessor
+     * @param string $ifWhereUse
+     * @return $this
+     */
+    public function WhereJsonContains(string $jsonDoc, string $path, string $value, string $accessor = '$.', string $ifWhereUse = 'AND'): static
+    {
+        $this->addSqlString("{$this->getWhere($ifWhereUse)} JSON_CONTAINS($jsonDoc, ?, ?)");
+        $this->setLastEmittedType('JSON_CONTAINS');
+        $this->setLastEmittedType('WHERE');
+        $this->addParam($value);
+        $this->addParam($accessor. $path);
+        return $this;
+    }
+
+    /**
      * If the jsonDocs should use a parameter binding, then you do it yourself
      * @param string $jsonDoc
      * @param string $jsonDoc2
@@ -973,7 +1172,39 @@ class TonicsQuery {
     public function JsonMergePatch(string $jsonDoc, string $jsonDoc2): static
     {
         $this->setLastEmittedType('JSON_MERGE_PATCH');
-        $this->addSqlString("JSON_MERGE_PATCH($jsonDoc $jsonDoc2");
+        $this->addSqlString("JSON_MERGE_PATCH($jsonDoc, $jsonDoc2)");
+        return $this;
+    }
+
+    /**
+     * e.g:
+     *
+     * ```
+     * [
+     *  ['$[0]' => 5],
+     *  ['$[1]' => 6],
+     *  ['$' => 6],
+     * ]
+     * ```
+     * @param string $jsonDoc
+     * @param array $pathValue
+     * @return $this
+     */
+    public function JsonArrayAppend(string $jsonDoc, array $data)
+    {
+        $this->setLastEmittedType('JSON_ARRAY_APPEND');
+        if (!is_array(reset($data))) $data = [$data];
+
+        $pathValueCount = 0;
+        foreach ($data as $pathValue){
+            if (is_array($pathValue)){
+                ++$pathValueCount;
+                $this->addParam(array_key_first($pathValue))->addParam($pathValue[array_key_first($pathValue)]);
+            }
+        }
+
+        $qMark = implode(',', array_fill(0, $pathValueCount, " ?, JSON_EXTRACT(?, '$')"));
+        $this->addSqlString("JSON_ARRAY_APPEND($jsonDoc, $qMark)");
         return $this;
     }
 
@@ -1069,6 +1300,7 @@ class TonicsQuery {
         $stmt = $this->getPdo()->prepare($sql);
         $stmt->execute($select->getParams());
         $this->setRowCount($stmt->rowCount());
+        $this->checkAndCloseTonicsQueryPassedToParam($select);
         return $this->getRowCount() > 0;
     }
 
@@ -1243,11 +1475,11 @@ class TonicsQuery {
 
     /**
      * @param $col
-     * @param string|TonicsQuery $value
+     * @param mixed|$this $value
      * @return $this
      * @throws \Exception
      */
-    public function Set($col, string|TonicsQuery $value): static
+    public function Set($col, $value): static
     {
         $set = 'SET';
         if($this->isLastEmitted('SET')){
@@ -1258,6 +1490,7 @@ class TonicsQuery {
             $this->validateNewInstanceOfTonicsQuery($value);
             $this->addSqlString("$set $col = {$value->getSqlString()} ");
             $this->addParams($value->getParams());
+            $this->checkAndCloseTonicsQueryPassedToParam($value);
         } else {
             $this->addSqlString("$set $col = ? ");
             $this->addParam($value);
@@ -1300,6 +1533,8 @@ class TonicsQuery {
 
         $updateString .= implode(', ', $pre) . " {$whereCondition->getSqlString()} ";
         $params = [...$params, ...$whereCondition->getParams()];
+
+        $this->checkAndCloseTonicsQueryPassedToParam($whereCondition);
 
         $stmt = $this->getPdo()->prepare($updateString);
         $stmt->execute($params);
@@ -1347,6 +1582,7 @@ class TonicsQuery {
         $deleteString .= $whereConditionString;
         $stmt = $this->getPdo()->prepare($deleteString);
         $stmt->execute($whereCondition->getParams());
+        $this->checkAndCloseTonicsQueryPassedToParam($whereCondition);
         $this->setRowCount($stmt->rowCount());
         return $this->getRowCount() > 0;
 
@@ -1371,12 +1607,24 @@ class TonicsQuery {
     #
 
     /**
-     * Get a new instance of TonicsQuery
+     * Get a new instance of TonicsQuery, use the `Reset()` method if you only want to reset
+     * without getting a new instance of `TonicsQuery`
      * @return TonicsQuery
      */
     public function Q(): TonicsQuery
     {
         return $this->getTonicsQueryBuilder()->getNewQuery();
+    }
+
+    /**
+     * The difference between this function and `Q()` is that `Q()` not only reset the TonicQuery core properties,
+     * it also get a new instance of `TonicsQuery`. So, use this function if you only want to reset without getting a new
+     * instance of `TonicsQuery`
+     * @return TonicsQuery
+     */
+    public function Reset()
+    {
+        return $this->setSqlString('')->setParams([])->setRowCount(null)->setLastEmittedType('')->setURLParams([]);
     }
 
 
@@ -1405,6 +1653,24 @@ class TonicsQuery {
         if (!is_array(reset($data))) $data = [$data];
         # Returns question marks, e.g, if the num column of what we would be inserting is 3, it returns "?,?,?"
         return implode(',', array_fill(0, count(array_keys(reset($data))), '?'));
+    }
+
+    /**
+     * @return bool
+     */
+    public function isTonicQueryPassedToParamClosed(): bool
+    {
+        return $this->closeTonicQueryPassedToParam;
+    }
+
+    /**
+     * @param bool $closeTonicQueryPassedToParam
+     * @return TonicsQuery
+     */
+    public function setCloseTonicQueryPassedToParam(bool $closeTonicQueryPassedToParam = true): TonicsQuery
+    {
+        $this->closeTonicQueryPassedToParam = $closeTonicQueryPassedToParam;
+        return $this;
     }
 
     protected function delimitArrayByComma(array $data): string
@@ -1603,6 +1869,27 @@ class TonicsQuery {
             'number_links' => $numberLinks
         ];
     }
+    
+
+    public function getPdo(): PDO
+    {
+        return $this->getTonicsQueryBuilder()->getPdo();
+    }
+
+    public function beginTransaction(): bool
+    {
+        return $this->getTonicsQueryBuilder()->getPdo()->beginTransaction();
+    }
+
+    public function commit(): bool
+    {
+        return $this->getTonicsQueryBuilder()->getPdo()->commit();
+    }
+
+    public function rollBack(): bool
+    {
+        return $this->getTonicsQueryBuilder()->getPdo()->rollBack();
+    }
 
     /**
      * This is a standalone query and as such, the statement wouldn't be added to the SqlString
@@ -1646,25 +1933,15 @@ class TonicsQuery {
         return $stmt->fetch($this->getPdoFetchType());
     }
 
-
-    public function getPdo(): PDO
+    /**
+     * Unlike `FetchResult()` and `FetchFirst()` function,
+     * this only executes and doesn't return a result set nor set any rowcount
+     * @return bool
+     */
+    public function Exec()
     {
-        return $this->getTonicsQueryBuilder()->getPdo();
-    }
-
-    public function beginTransaction(): bool
-    {
-        return $this->getTonicsQueryBuilder()->getPdo()->beginTransaction();
-    }
-
-    public function commit(): bool
-    {
-        return $this->getTonicsQueryBuilder()->getPdo()->commit();
-    }
-
-    public function rollBack(): bool
-    {
-        return $this->getTonicsQueryBuilder()->getPdo()->rollBack();
+        $stmt = $this->getPdo()->prepare($this->getSqlString());
+        return $stmt->execute($this->getParams());
     }
 
     /**
@@ -1687,5 +1964,27 @@ class TonicsQuery {
         $stmt->execute($this->getParams());
         $this->setRowCount($stmt->rowCount());
         return $stmt->fetch($this->getPdoFetchType());
+    }
+
+    /**
+     * @param array|TonicsQuery $values
+     * @return void
+     */
+    private function checkAndCloseTonicsQueryPassedToParam(array|TonicsQuery $values)
+    {
+        if ($this->isTonicQueryPassedToParamClosed() === false){
+            return;
+        }
+        if (is_array($values)){
+            foreach ($values as $value){
+                if ($value instanceof TonicsQuery){
+                    $value->getTonicsQueryBuilder()->destroyPdoConnection();
+                }
+            }
+        } else {
+            if ($values instanceof TonicsQuery){
+                $values->getTonicsQueryBuilder()->destroyPdoConnection();
+            }
+        }
     }
 }

@@ -4,7 +4,7 @@ namespace Devsrealm\TonicsQueryBuilder;
 
 class TonicsQueryBuilder
 {
-    private \PDO $pdo;
+    private ?\PDO $pdo = null;
 
     private TonicsQuery $tonicsQuery;
 
@@ -23,7 +23,16 @@ class TonicsQueryBuilder
      */
     public function getPdo(): \PDO
     {
+        if ($this->pdo === null){
+            throw new \Exception("PDO Object has been destroyed, create a new one");
+        }
         return $this->pdo;
+    }
+
+    public function destroyPdoConnection()
+    {
+        $this->pdo = null;
+
     }
 
     /**
@@ -47,9 +56,7 @@ class TonicsQueryBuilder
     public function getNewQuery(): TonicsQuery
     {
         $clone = clone $this->tonicsQuery;
-        $clone->setParams([]);
-        $clone->setSqlString('');
-        $clone->setLastEmittedType('');
+        $clone->Reset();
         $clone->setTonicsQueryBuilder($this);
         return $clone;
     }
