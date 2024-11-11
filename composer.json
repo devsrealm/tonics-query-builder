@@ -1,0 +1,14 @@
+{
+    "name": "devsrealm/tonics-query-builder",
+    "description": "Tonics SQL Query Builder is a library for building SQL in a modular and a hookable manner",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Devsrealm\\TonicsQueryBuilder\\": "src/"
+        }
+    },
+    "require": {
+        "ext-pdo": "*"
+    }
+}
