@@ -1,4 +1,3 @@
-```markdown
 # Tonics Query Builder
 
 Tonics SQL Query Builder is a library for building SQL in a modular and hookable manner.
@@ -70,4 +69,3 @@ print_r($firstResult);
 ## License
 
 Tonics Query Builder is open-sourced software licensed under the [MIT license](LICENSE).
-```
