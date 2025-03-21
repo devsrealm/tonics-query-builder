@@ -342,6 +342,19 @@ class TonicsQuery {
     }
 
     /**
+     * @param string $condition
+     * @param array $params
+     * @param string $ifWhereUse
+     * @return $this
+     */
+    public function WhereRaw(string $condition, array $params = [], string $ifWhereUse = 'AND'): static
+    {
+        $this->addSqlString("{$this->getWhere($ifWhereUse)} $condition");
+        $this->addParams($params);
+        return $this;
+    }
+
+    /**
      * @param string $col
      * @param TonicsQuery $min
      * @param TonicsQuery $max
