@@ -6,9 +6,6 @@ use Devsrealm\TonicsQueryBuilder\TonicsQuery;
 
 class MySQLTonicsQueryTransformer extends TonicsQuery
 {
-    /**
-     * @throws \Exception
-     */
     public function InsertReturning(string $table, array $data, array $return, string $primaryKey): mixed
     {
         if (empty($data)) return false;
@@ -76,9 +73,14 @@ class MySQLTonicsQueryTransformer extends TonicsQuery
                 $stmtReturning->execute([$lastInsertID, $rowCount]);
             }
 
-            $result = $stmtReturning->fetchAll($this->getPdoFetchType());
-            $pdo->commit();
+            // For single row insert, return single record; for multiple rows, return array
+            if (count($data) === 1) {
+                $result = $stmtReturning->fetch($this->getPdoFetchType());
+            } else {
+                $result = $stmtReturning->fetchAll($this->getPdoFetchType());
+            }
 
+            $pdo->commit();
             $this->setRowCount($rowCount);
             return $result;
 
