@@ -355,6 +355,24 @@ class TonicsQuery {
     }
 
     /**
+     * @param TonicsQuery|string $condition
+     * @return $this
+     * @throws \Exception
+     */
+    public function OrWhere($condition): static
+    {
+        if ($condition instanceof TonicsQuery) {
+            $this->validateNewInstanceOfTonicsQuery($condition);
+            $this->addSqlString("{$this->getWhere('OR')} ({$condition->getSqlString()})");
+            $this->addParams($condition->getParams());
+            $this->checkAndCloseTonicsQueryPassedToParam($condition);
+        } else {
+            $this->addSqlString("{$this->getWhere('OR')} $condition");
+        }
+        return $this;
+    }
+
+    /**
      * @param string $col
      * @param TonicsQuery $min
      * @param TonicsQuery $max
@@ -950,6 +968,19 @@ class TonicsQuery {
     public function Join($table, $col, $col2, string $op = '='): static
     {
         return $this->JoinRelative($table, $col, $col2, $op);
+    }
+
+    /**
+     * @param $table
+     * @param $col
+     * @param $col2
+     * @param string $op
+     * @return $this
+     * @throws \Exception
+     */
+    public function StraightJoin($table, $col, $col2, string $op = '='): static
+    {
+        return $this->JoinRelative($table, $col, $col2, $op, 'STRAIGHT_JOIN');
     }
 
     /**

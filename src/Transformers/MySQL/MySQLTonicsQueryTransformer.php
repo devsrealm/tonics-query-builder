@@ -6,6 +6,9 @@ use Devsrealm\TonicsQueryBuilder\TonicsQuery;
 
 class MySQLTonicsQueryTransformer extends TonicsQuery
 {
+    /**
+     * @throws \Exception
+     */
     public function InsertReturning(string $table, array $data, array $return, string $primaryKey): mixed
     {
         if (empty($data)) return false;
@@ -43,22 +46,53 @@ class MySQLTonicsQueryTransformer extends TonicsQuery
             $rowCount = $stmt->rowCount();
             $lastInsertID = $pdo->lastInsertId();
 
-            ### DATA RETURNING
-            $sqlReturningAlternative = <<<SQL
-SELECT $delimitedReturningColumns FROM $table
-WHERE $primaryKey >= $lastInsertID ORDER BY $primaryKey FETCH FIRST $rowCount ROWS ONLY;
-SQL;
+            // Handle case where lastInsertId() returns 0 or null (non-auto-increment tables)
+            if (empty($lastInsertID)) {
+                // For non-auto-increment primary keys, we need a different approach
+                // Try to get the inserted records by matching the exact data
+                $whereConditions = [];
+                $whereParams = [];
 
-            $stmtReturning = $pdo->prepare($sqlReturningAlternative);
-            $stmtReturning->execute();
+                foreach ($data as $row) {
+                    $rowConditions = [];
+                    foreach ($row as $column => $value) {
+                        $escapedColumn = $this->escapeColumn($column);
+                        $rowConditions[] = "$escapedColumn = ?";
+                        $whereParams[] = $value;
+                    }
+                    $whereConditions[] = '(' . implode(' AND ', $rowConditions) . ')';
+                }
+
+                $whereClause = implode(' OR ', $whereConditions);
+                $sqlReturningAlternative = "SELECT $delimitedReturningColumns FROM $table WHERE $whereClause";
+
+                $stmtReturning = $pdo->prepare($sqlReturningAlternative);
+                $stmtReturning->execute($whereParams);
+            } else {
+                ### DATA RETURNING - Fixed MySQL syntax
+                $sqlReturningAlternative = "SELECT $delimitedReturningColumns FROM $table WHERE $primaryKey >= ? ORDER BY $primaryKey LIMIT ?";
+
+                $stmtReturning = $pdo->prepare($sqlReturningAlternative);
+                $stmtReturning->execute([$lastInsertID, $rowCount]);
+            }
+
+            $result = $stmtReturning->fetchAll($this->getPdoFetchType());
             $pdo->commit();
 
             $this->setRowCount($rowCount);
-            return $stmtReturning->fetchAll($this->getPdoFetchType());
-        } catch (\Exception $exception){
-            $pdo->rollBack();
-        }
+            return $result;
 
-        return [];
+        } catch (\Exception $exception) {
+            $pdo->rollBack();
+            throw $exception; // Re-throw to help with debugging
+        }
+    }
+
+    /**
+     * Helper method to escape a single column name
+     */
+    private function escapeColumn(string $column): string
+    {
+        return '`' . str_replace('`', '``', $column) . '`';
     }
 }
