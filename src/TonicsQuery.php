@@ -355,11 +355,11 @@ class TonicsQuery {
     }
 
     /**
-     * @param TonicsQuery|string $condition
+     * @param string|TonicsQuery $condition
      * @return $this
      * @throws \Exception
      */
-    public function OrWhere($condition): static
+    public function OrWhere(TonicsQuery|string $condition): static
     {
         if ($condition instanceof TonicsQuery) {
             $this->validateNewInstanceOfTonicsQuery($condition);
