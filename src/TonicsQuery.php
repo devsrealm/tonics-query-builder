@@ -17,7 +17,7 @@ class TonicsQuery {
 
     private bool $closeTonicQueryPassedToParam = true;
 
-    public function __construct(TonicsQueryBuilder $tonicsQueryBuilder = null)
+    public function __construct(?TonicsQueryBuilder $tonicsQueryBuilder = null)
     {
         if ($tonicsQueryBuilder){
             $this->tonicsQueryBuilder = $tonicsQueryBuilder;
@@ -418,6 +418,7 @@ class TonicsQuery {
     /**
      * @param string $col
      * @return $this
+     * @throws \Exception
      */
     public function OrWhereEquals(string $col, $value): static
     {
@@ -550,6 +551,7 @@ class TonicsQuery {
      * @param string $col
      * @param $value
      * @param string $type
+     * @param string $ifWhereUse
      * @return $this
      * @throws \Exception
      */
@@ -766,7 +768,7 @@ class TonicsQuery {
      * @param string $column
      * @return $this
      */
-    public function OrderByDesc(string $column, callable $onCol = null): static
+    public function OrderByDesc(string $column, ?callable $onCol = null): static
     {
         $orderBy = 'ORDER BY ';
         if($this->isLastEmitted('ORDER BY')){
@@ -785,7 +787,7 @@ class TonicsQuery {
      * @param string $column
      * @return $this
      */
-    public function OrderByAsc(string $column, callable $onCol = null): static
+    public function OrderByAsc(string $column, ?callable $onCol = null): static
     {
         $orderBy = 'ORDER BY ';
         if($this->isLastEmitted('ORDER BY')){
@@ -1144,7 +1146,7 @@ class TonicsQuery {
     {
         $this->setLastEmittedType('JSON_UNQUOTE');
         $this->addSqlString("JSON_UNQUOTE(?)");
-        $this->addParams($value);
+        $this->addParams([$value]);
         return $this;
     }
 
@@ -1177,6 +1179,7 @@ class TonicsQuery {
     /**
      * @param string $jsonDoc
      * @param string $path
+     * @param string $value
      * @param string $accessor
      * @return $this
      */
@@ -1317,9 +1320,15 @@ class TonicsQuery {
     public function SimplePaginate(int $perPage = 10, string $pageName = 'page'): ?object
     {
         $newQuery = $this->Q();
-        $tableRows = $newQuery->Select('')->Count()
-            ->As('`rows`')->From(" ( {$this->getSqlString()} ) ")
-            ->As('count')->addParams($this->getParams())->FetchFirst();
+        $tables = $this->getTonicsQueryBuilder()->getTables();
+        $rowsColumn = $tables->transformTableColumn('', 'rows');
+        $countAlias = $tables->transformTableColumn('', 'count');
+
+        $tableRows = $newQuery->Select("COUNT(*) AS $rowsColumn")
+            ->From(" ( {$this->getSqlString()} ) ")
+            ->As($countAlias)
+            ->addParams($this->getParams())
+            ->FetchFirst();
 
         if (!isset($tableRows->rows)){
             $tableRows = 0;
@@ -1778,7 +1787,7 @@ class TonicsQuery {
      * @param callable|null $callbackElse
      * @return static
      */
-    public function when($condition, callable $callback, callable $callbackElse = null): static
+    public function when($condition, callable $callback, ?callable $callbackElse = null): static
     {
         if ($condition) {
             $callback($this);
@@ -1822,7 +1831,7 @@ class TonicsQuery {
      */
     protected function getRequestURL(): string
     {
-        $url = strtok($_SERVER['REQUEST_URI'], '?');
+        $url = isset($_SERVER['REQUEST_URI']) ? strtok($_SERVER['REQUEST_URI'], '?') : '/';
         return $this->cleanUrl($url);
     }
 
@@ -2014,7 +2023,7 @@ class TonicsQuery {
      * @param array|TonicsQuery $values
      * @return void
      */
-    private function checkAndCloseTonicsQueryPassedToParam(array|TonicsQuery $values)
+    public function checkAndCloseTonicsQueryPassedToParam(array|TonicsQuery $values): void
     {
         if ($this->isTonicQueryPassedToParamClosed() === false){
             return;
@@ -2022,12 +2031,20 @@ class TonicsQuery {
         if (is_array($values)){
             foreach ($values as $value){
                 if ($value instanceof TonicsQuery){
-                    $value->getTonicsQueryBuilder()->destroyPdoConnection();
+                    // Don't destroy PDO if the nested query shares the same QueryBuilder as current query
+                    // This prevents destroying the PDO connection that the parent query is still using
+                    if ($value->getTonicsQueryBuilder() !== $this->getTonicsQueryBuilder()) {
+                        $value->getTonicsQueryBuilder()->destroyPdoConnection();
+                    }
                 }
             }
         } else {
             if ($values instanceof TonicsQuery){
-                $values->getTonicsQueryBuilder()->destroyPdoConnection();
+                // Don't destroy PDO if the nested query shares the same QueryBuilder as current query
+                // This prevents destroying the PDO connection that the parent query is still using
+                if ($values->getTonicsQueryBuilder() !== $this->getTonicsQueryBuilder()) {
+                    $values->getTonicsQueryBuilder()->destroyPdoConnection();
+                }
             }
         }
     }

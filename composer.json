@@ -10,5 +10,10 @@
     },
     "require": {
         "ext-pdo": "*"
+    },
+    "require-dev": {
+        "ext-mbstring": "*",
+        "kahlan/kahlan": "^6.0",
+        "vlucas/phpdotenv": "^5.6"
     }
 }
