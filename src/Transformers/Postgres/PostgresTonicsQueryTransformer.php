@@ -400,4 +400,45 @@ class PostgresTonicsQueryTransformer extends TonicsQuery
         $segments = array_values(array_filter(explode('.', $path), fn($v) => $v !== ''));
         return '{' . implode(',', $segments) . '}';
     }
+
+    /**
+     * Execute a raw PostgreSQL query with PostgreSQL-style positional parameters ($1, $2, $3)
+     * and convert them to PDO-style (?) placeholders automatically.
+     *
+     * Example:
+     *   $result = $q->runPg("SELECT * FROM users WHERE id = $1 AND status = $2", 123, 'active');
+     *
+     * @param string $sql SQL query with PostgreSQL-style $1, $2, $3 placeholders
+     * @param mixed ...$params Parameters to bind (in order)
+     * @return array|bool Query results
+     */
+    public function runPg(string $sql, ...$params): array|bool
+    {
+        // Convert PostgreSQL $1, $2, $3 style to PDO ? style
+        $pdoSql = preg_replace_callback('/\$(\d+)/', function($matches) {
+            return '?';
+        }, $sql);
+
+        return $this->run($pdoSql, ...$params);
+    }
+
+    /**
+     * Execute a raw PostgreSQL query and return a single row, with PostgreSQL-style positional parameters.
+     *
+     * Example:
+     *   $user = $q->rowPg("SELECT * FROM users WHERE id = $1", 123);
+     *
+     * @param string $sql SQL query with PostgreSQL-style $1, $2, $3 placeholders
+     * @param mixed ...$params Parameters to bind (in order)
+     * @return mixed Single row result
+     */
+    public function rowPg(string $sql, ...$params): mixed
+    {
+        // Convert PostgreSQL $1, $2, $3 style to PDO ? style
+        $pdoSql = preg_replace_callback('/\$(\d+)/', function($matches) {
+            return '?';
+        }, $sql);
+
+        return $this->row($pdoSql, ...$params);
+    }
 }

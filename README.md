@@ -141,6 +141,29 @@ $withNullEmails = $q->Select('username')
   ->FetchResult();
 ```
 
+### Raw queries with PostgreSQL-style placeholders
+
+If you need to execute raw SQL with PostgreSQL's native `$1, $2, $3` placeholder syntax (instead of PDO's `?`), use the `runPg()` or `rowPg()` methods:
+
+```php
+// Execute with multiple results
+$q = $qb->getNewQuery();
+$result = $q->runPg(
+    "SELECT EXISTS(SELECT 1 FROM migrations WHERE migration = $1) AS result",
+    $migrationName
+);
+
+// Execute and get single row
+$q = $qb->getNewQuery();
+$user = $q->rowPg(
+    "SELECT * FROM users WHERE id = $1 AND status = $2",
+    123,
+    'active'
+);
+```
+
+These methods automatically convert PostgreSQL-style placeholders to PDO format before execution.
+
 ## Key differences from MySQL/MariaDB
 
 - Identifier quoting: PostgreSQL uses double quotes (")

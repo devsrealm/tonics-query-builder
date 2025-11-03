@@ -778,5 +778,163 @@ describe('PostgresTonicsQueryTransformer', function() {
 
     });
 
+    describe('PostgreSQL-style placeholders', function() {
+
+        beforeEach(function() {
+            $this->pdo->exec("
+                INSERT INTO users (username, email, logins, created_at) VALUES 
+                ('alice', 'alice@example.com', 5, '2025-01-15'),
+                ('bob', 'bob@example.com', 10, '2025-02-20'),
+                ('charlie', NULL, 3, '2025-03-10')
+            ");
+        });
+
+        describe('->runPg()', function() {
+
+            it('converts $1 placeholder to PDO ? placeholder', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->runPg(
+                    "SELECT username FROM users WHERE username = $1",
+                    'alice'
+                );
+
+                expect(count($result))->toBe(1);
+                expect($result[0]->username)->toBe('alice');
+            });
+
+            it('handles multiple PostgreSQL-style placeholders', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->runPg(
+                    "SELECT username, logins FROM users WHERE logins >= $1 AND logins <= $2 ORDER BY username",
+                    5,
+                    10
+                );
+
+                expect(count($result))->toBe(2);
+                expect($result[0]->username)->toBe('alice');
+                expect($result[1]->username)->toBe('bob');
+            });
+
+            it('works with EXISTS subquery', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->runPg(
+                    "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1) AS result",
+                    'alice'
+                );
+
+                expect($result[0]->result)->toBe(true);
+            });
+
+            it('handles NULL values correctly', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->runPg(
+                    "SELECT username FROM users WHERE email IS NOT DISTINCT FROM $1",
+                    null
+                );
+
+                expect(count($result))->toBe(1);
+                expect($result[0]->username)->toBe('charlie');
+            });
+
+            it('works with ORDER BY and LIMIT', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->runPg(
+                    "SELECT username FROM users WHERE logins >= $1 ORDER BY logins DESC LIMIT $2",
+                    3,
+                    2
+                );
+
+                expect(count($result))->toBe(2);
+                expect($result[0]->username)->toBe('bob');
+                expect($result[1]->username)->toBe('alice');
+            });
+
+            it('handles date comparisons', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->runPg(
+                    "SELECT username FROM users WHERE created_at >= $1 ORDER BY created_at",
+                    '2025-02-01'
+                );
+
+                expect(count($result))->toBe(2);
+                expect($result[0]->username)->toBe('bob');
+                expect($result[1]->username)->toBe('charlie');
+            });
+
+        });
+
+        describe('->rowPg()', function() {
+
+            it('returns single row with $1 placeholder', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->rowPg(
+                    "SELECT username, email, logins FROM users WHERE username = $1",
+                    'bob'
+                );
+
+                expect($result->username)->toBe('bob');
+                expect($result->email)->toBe('bob@example.com');
+                expect((int)$result->logins)->toBe(10);
+            });
+
+            it('handles multiple placeholders for single row', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->rowPg(
+                    "SELECT username FROM users WHERE username = $1 AND logins > $2",
+                    'alice',
+                    3
+                );
+
+                expect($result->username)->toBe('alice');
+            });
+
+            it('returns false when no row found', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->rowPg(
+                    "SELECT username FROM users WHERE username = $1",
+                    'nonexistent'
+                );
+
+                expect($result)->toBe(false);
+            });
+
+            it('works with aggregate functions', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->rowPg(
+                    "SELECT COUNT(*) as total FROM users WHERE logins >= $1",
+                    5
+                );
+
+                expect((int)$result->total)->toBe(2);
+            });
+
+            it('handles complex WHERE conditions', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->rowPg(
+                    "SELECT username, logins FROM users WHERE (logins > $1 OR email IS NULL) AND created_at > $2 ORDER BY logins DESC LIMIT 1",
+                    4,
+                    '2025-01-01'
+                );
+
+                expect($result->username)->toBe('bob');
+                expect((int)$result->logins)->toBe(10);
+            });
+
+            it('works with CASE statements', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->rowPg(
+                    "SELECT username, CASE WHEN logins >= $1 THEN 'active' ELSE 'inactive' END as status FROM users WHERE username = $2",
+                    5,
+                    'bob'
+                );
+
+                expect($result->username)->toBe('bob');
+                expect($result->status)->toBe('active');
+            });
+
+        });
+
+    });
+
 });
 
