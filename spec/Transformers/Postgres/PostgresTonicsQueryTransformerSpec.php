@@ -936,5 +936,121 @@ describe('PostgresTonicsQueryTransformer', function() {
 
     });
 
+    describe('Multiple SQL statements', function() {
+
+        describe('->execRaw()', function() {
+
+            it('executes multiple CREATE statements', function() {
+                $q = $this->qb->getNewQuery();
+                $result = $q->execRaw(<<<SQL
+                    CREATE TABLE IF NOT EXISTS test_table1 (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(255)
+                    );
+                    CREATE TABLE IF NOT EXISTS test_table2 (
+                        id SERIAL PRIMARY KEY,
+                        email VARCHAR(255)
+                    );
+SQL);
+
+                expect($result)->toBeA('integer');
+
+                // Verify tables were created
+                $check = $this->pdo->query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'test_table1')");
+                expect($check->fetchColumn())->toBe(true);
+
+                $check2 = $this->pdo->query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'test_table2')");
+                expect($check2->fetchColumn())->toBe(true);
+            });
+
+            it('executes schema creation and table creation', function() {
+                $q = $this->qb->getNewQuery();
+                $q->execRaw(<<<SQL
+                    CREATE SCHEMA IF NOT EXISTS test_schema;
+                    CREATE TABLE IF NOT EXISTS test_schema.users (
+                        id UUID PRIMARY KEY,
+                        username VARCHAR(255) NOT NULL
+                    );
+SQL);
+
+                // Verify schema exists
+                $check = $this->pdo->query("SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'test_schema')");
+                expect($check->fetchColumn())->toBe(true);
+
+                // Verify table exists in schema
+                $check2 = $this->pdo->query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'test_schema' AND table_name = 'users')");
+                expect($check2->fetchColumn())->toBe(true);
+            });
+
+            it('executes INSERT statements after CREATE', function() {
+                $q = $this->qb->getNewQuery();
+                $q->execRaw(<<<SQL
+                    CREATE TABLE IF NOT EXISTS test_users (
+                        id SERIAL PRIMARY KEY,
+                        username VARCHAR(255) UNIQUE NOT NULL
+                    );
+                    INSERT INTO test_users (username) VALUES ('alice');
+                    INSERT INTO test_users (username) VALUES ('bob');
+SQL);
+
+                // Verify data was inserted
+                $check = $this->pdo->query("SELECT COUNT(*) FROM test_users");
+                expect((int)$check->fetchColumn())->toBe(2);
+            });
+
+            it('handles CREATE INDEX and ALTER TABLE', function() {
+                $q = $this->qb->getNewQuery();
+                $q->execRaw(<<<SQL
+                    CREATE TABLE IF NOT EXISTS indexed_table (
+                        id SERIAL PRIMARY KEY,
+                        email VARCHAR(255),
+                        status VARCHAR(50)
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_email ON indexed_table(email);
+                    ALTER TABLE indexed_table ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+SQL);
+
+                // Verify table exists
+                $check = $this->pdo->query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'indexed_table')");
+                expect($check->fetchColumn())->toBe(true);
+
+                // Verify column was added
+                $check2 = $this->pdo->query("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'indexed_table' AND column_name = 'created_at')");
+                expect($check2->fetchColumn())->toBe(true);
+            });
+
+            it('throws exception on SQL syntax error', function() {
+                $q = $this->qb->getNewQuery();
+
+                expect(function() use ($q) {
+                    $q->execRaw(<<<SQL
+                        CREATE TABLE invalid syntax here;
+                        SELECT * FROM nonexistent;
+SQL);
+                })->toThrow();
+            });
+
+            it('executes with comments in SQL', function() {
+                $q = $this->qb->getNewQuery();
+                $q->execRaw(<<<SQL
+                    -- This is a comment
+                    CREATE TABLE IF NOT EXISTS commented_table (
+                        id SERIAL PRIMARY KEY,
+                        /* Multi-line
+                           comment */
+                        name VARCHAR(255)
+                    );
+                    -- Another comment
+                    INSERT INTO commented_table (name) VALUES ('test');
+SQL);
+
+                $check = $this->pdo->query("SELECT COUNT(*) FROM commented_table");
+                expect((int)$check->fetchColumn())->toBe(1);
+            });
+
+        });
+
+    });
+
 });
 

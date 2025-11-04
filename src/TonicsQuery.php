@@ -2020,6 +2020,41 @@ class TonicsQuery {
     }
 
     /**
+     * Execute raw SQL statements without parameters.
+     * Supports multiple statements separated by semicolons.
+     *
+     * This uses PDO::exec() which allows multiple statements but doesn't support parameters.
+     *
+     * ⚠️ WARNING: Do NOT use this with user input - it's not parameterized!
+     * This is meant for migrations, schema creation, and trusted SQL scripts only.
+     *
+     * Example:
+     *
+     * ```
+     *   $q->execRaw(<<<SQL
+     *       CREATE SCHEMA IF NOT EXISTS myapp;
+     *       CREATE TABLE IF NOT EXISTS myapp.users (id SERIAL PRIMARY KEY, name VARCHAR(255));
+     *       INSERT INTO myapp.users (name) VALUES ('admin');
+     *   SQL);
+     * ```
+     * @param string $sql Raw SQL statement(s)
+     * @return int Number of rows affected by the last statement (0 for DDL statements)
+     * @throws \PDOException if any statement fails
+     */
+    public function execRaw(string $sql): int
+    {
+        // Use exec() instead of prepare() to allow multiple statements
+        // Note: This doesn't return result sets, only affected row count
+        $affectedRows = $this->getPdo()->exec($sql);
+
+        // exec() returns the number of rows affected by the LAST statement
+        // For CREATE/ALTER/DROP it typically returns 0
+        $this->setRowCount($affectedRows === false ? 0 : $affectedRows);
+
+        return $this->getRowCount();
+    }
+
+    /**
      * @param array|TonicsQuery $values
      * @return void
      */
@@ -2049,3 +2084,4 @@ class TonicsQuery {
         }
     }
 }
+

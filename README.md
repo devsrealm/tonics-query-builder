@@ -164,6 +164,38 @@ $user = $q->rowPg(
 
 These methods automatically convert PostgreSQL-style placeholders to PDO format before execution.
 
+### Executing multiple SQL statements
+
+For migrations, schema creation, or running SQL scripts with multiple statements separated by semicolons, use `execRaw()`:
+
+```php
+$q = $qb->getNewQuery();
+$q->execRaw(<<<SQL
+    -- Create schema
+    CREATE SCHEMA IF NOT EXISTS cskiller_auth;
+    
+    -- Create users table
+    CREATE TABLE IF NOT EXISTS cskiller_auth.users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        role VARCHAR(255) NULL,
+        encrypted_password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Create sessions table
+    CREATE TABLE IF NOT EXISTS cskiller_auth.sessions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES cskiller_auth.users(id),
+        token VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMP NOT NULL
+    );
+SQL);
+```
+
+**⚠️ WARNING**: `execRaw()` does NOT support parameterized queries - it's only for trusted SQL scripts like migrations. Never use it with user input!
+
 ## Key differences from MySQL/MariaDB
 
 - Identifier quoting: PostgreSQL uses double quotes (")
